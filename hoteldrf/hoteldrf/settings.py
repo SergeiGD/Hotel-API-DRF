@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'apps.rooms.apps.RoomsConfig',
     'django_crontab',
     'django_cleanup.apps.CleanupConfig',
     'phonenumber_field',
