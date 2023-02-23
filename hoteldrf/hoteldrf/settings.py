@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'apps.core.apps.CoreConfig',
     'django.contrib.staticfiles',
     'apps.rooms.apps.RoomsConfig',
     'django_crontab',

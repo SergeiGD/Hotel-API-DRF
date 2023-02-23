@@ -1,8 +1,7 @@
 from django.db import models
-from django.db.models import UniqueConstraint
-from rest_framework.exceptions import ValidationError
+from django.utils import timezone
 
-from .utils import build_photo_path
+from ..core.utils import build_photo_path
 
 
 class RoomCategory(models.Model):
@@ -53,6 +52,14 @@ class RoomCategory(models.Model):
         default=False
     )
 
+    def mark_as_deleted(self):
+        self.date_deleted = timezone.now()
+        self.get_rooms().update(date_deleted=timezone.now())
+        self.save()
+
+    def get_rooms(self):
+        return Room.objects.filter(room_category_id=self.id, date_deleted=None)
+
     class Meta:
         ordering = ['-date_created']
 
@@ -77,5 +84,28 @@ class Room(models.Model):
         null=True
     )
 
+    def mark_as_deleted(self):
+        self.date_deleted = timezone.now()
+        self.save()
+
     class Meta:
         ordering = ['-id']
+
+
+class Photo(models.Model):
+    room_category = models.ForeignKey(
+        RoomCategory,
+        on_delete=models.CASCADE,
+        related_name='photos',
+        related_query_name='photo'
+    )
+    order = models.SmallIntegerField(
+        verbose_name='порядковый номер'
+    )
+    path = models.ImageField(
+        upload_to=build_photo_path,
+        verbose_name='фото'
+    )
+
+    class Meta:
+        ordering = ['order']
