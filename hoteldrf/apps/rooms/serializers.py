@@ -7,7 +7,9 @@ from django.db.models import Max
 
 
 class RoomsCategoriesSerializer(serializers.ModelSerializer):
-
+    """
+    Сериалайзер для оторабражения, создания, изменений категорий комнат
+    """
     class Meta:
         model = RoomCategory
         fields = ['id', 'name', 'description', 'default_price',
@@ -44,6 +46,9 @@ class RoomsCategoriesSerializer(serializers.ModelSerializer):
 
 
 class RoomsSerializer(serializers.ModelSerializer):
+    """
+    Сериалайзер для оторабражения, создания, изменений номером
+    """
     class Meta:
         model = Room
         fields = ['id', 'room_number', 'is_hidden']
@@ -66,12 +71,18 @@ class RoomsSerializer(serializers.ModelSerializer):
 
 
 class CreatePhotoSerializer(serializers.ModelSerializer):
+    """
+    Сериалайзер для создания доп. фотографий категорий номеров
+    """
     class Meta:
         model = Photo
         fields = ['id', 'path']
 
 
 class PhotosSerializer(serializers.ModelSerializer):
+    """
+    Сериалайзер для отображения и измения номеров
+    """
     class Meta:
         model = Photo
         fields = ['id', 'path', 'order']
