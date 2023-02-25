@@ -4,8 +4,11 @@ from rest_framework import generics, status
 from rest_framework.generics import get_object_or_404
 from rest_framework import serializers
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import Room, RoomCategory, Photo
+from ..tags.models import Tag
+from ..tags.serializers import TagsSerializer
 from .serializers import RoomsCategoriesSerializer, RoomsSerializer, PhotosSerializer, CreatePhotoSerializer
 
 
@@ -43,6 +46,30 @@ class PhotosListAPIView(generics.ListAPIView):
     def get_queryset(self):
         # Отображаем те, которые не удалены, категорию берем из url
         return Photo.objects.filter(room_category_id=self.kwargs.get('cat_id'))
+
+
+class CategoryTagsAPIView(APIView):
+    """
+    Вью для получения, добавления, удаления тегов категории номеров
+    """
+    def get(self, request, cat_id):
+        tags = Tag.objects.filter(room__id=cat_id).values()
+        return Response(list(tags))
+
+    def delete(self, request, cat_id):
+        room_cat = get_object_or_404(RoomCategory, pk=cat_id)
+        tag = get_object_or_404(Tag, pk=request.data['tag_id'])
+        room_cat.tags.remove(tag)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def post(self, request, cat_id):
+        room_cat = get_object_or_404(RoomCategory, pk=cat_id)
+        tag = get_object_or_404(Tag, pk=request.data['tag_id'])
+        room_cat.tags.add(tag)
+        return Response({
+            'room_category_id': room_cat.pk,
+            'tag_id': tag.pk,
+        })
 
 
 class RoomCategoryCreateAPIView(generics.CreateAPIView):
@@ -108,8 +135,8 @@ class RoomManageAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = RoomsSerializer
 
     def get_queryset(self):
-        # Отображаем те, которые не удалены
-        return Room.objects.filter(date_deleted=None)
+        # Отображаем те, которые не удалены, категорию берем из url
+        return Room.objects.filter(date_deleted=None, room_category_id=self.kwargs.get('cat_id'))
 
     def perform_destroy(self, instance):
         # переопределяем destroy, чтоб он просто почемал как удаленный, а не удалял реально
@@ -124,6 +151,10 @@ class PhotoManageAPIView(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = Photo.objects.all()
     serializer_class = PhotosSerializer
+
+    def get_queryset(self):
+        # Категорию берем из url
+        return Photo.objects.filter(room_category_id=self.kwargs.get('cat_id'))
 
     def perform_update(self, serializer):
         #  переопределяем обновление, чтоб поменять порядковые номера местами

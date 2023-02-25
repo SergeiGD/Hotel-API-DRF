@@ -1,9 +1,6 @@
 from rest_framework import serializers
-from rest_framework.generics import get_object_or_404
-from rest_framework.validators import UniqueTogetherValidator
 
 from .models import Room, RoomCategory, Photo
-from django.db.models import Max
 
 
 class RoomsCategoriesSerializer(serializers.ModelSerializer):
@@ -22,27 +19,47 @@ class RoomsCategoriesSerializer(serializers.ModelSerializer):
         super(RoomsCategoriesSerializer, self).__init__(*args, **kwargs)
 
         # если фото и так загружено, то помечаем поле как необязательное
-        if hasattr(self.instance, 'main_photo') and self.instance.main_photo:
+        if hasattr(self.instance, 'main_photo') and self.instance.main_photo is not None:
             self.fields['main_photo'].allow_empty_file = True
             self.fields['main_photo'].required = False
 
     def validate(self, data):
         if data['default_price'] <= 0:
-            raise serializers.ValidationError("Цена должна быть больше 0")
-        if data['prepayment_percent'] <= 0 or data['prepayment_percent'] > 100:
-            raise serializers.ValidationError("Предоплата должна быть больше 0 и не больше 100")
-        if data['refund_percent'] <= 0 or data['refund_percent'] > 100:
-            raise serializers.ValidationError("Возврат должен быть больше 0 и не больше 100")
-        if data['rooms_count'] <= 0:
-            raise serializers.ValidationError("Кол-во комнат должно быть больше 0")
-        if data['floors'] <= 0:
-            raise serializers.ValidationError("Кол-во этажей должно быть больше 0")
-        if data['beds'] <= 0:
-            raise serializers.ValidationError("Кол-во спальных мест должно быть больше 0")
-        if data['square'] <= 0:
-            raise serializers.ValidationError("Площадь должна быть больше 0")
+            raise serializers.ValidationError({
+                'price': 'Цена должна быть больше 0'
+            })
 
-        return data
+        if data['prepayment_percent'] <= 0 or data['prepayment_percent'] > 100:
+            raise serializers.ValidationError({
+                'prepayment': 'Предоплата должна быть больше 0 и не больше 100'
+            })
+
+        if data['refund_percent'] <= 0 or data['refund_percent'] > 100:
+            raise serializers.ValidationError({
+                'refund': 'Возврат должен быть больше 0 и не больше 100"'
+            })
+
+        if data['rooms_count'] <= 0:
+            raise serializers.ValidationError({
+                'rooms_count': 'Кол-во комнат должно быть больше 0'
+            })
+
+        if data['floors'] <= 0:
+            raise serializers.ValidationError({
+                'floors': 'Кол-во этажей должно быть больше 0'
+            })
+
+        if data['beds'] <= 0:
+            raise serializers.ValidationError({
+                'beds': 'Кол-во спальных мест должно быть больше 0'
+            })
+
+        if data['square'] <= 0:
+            raise serializers.ValidationError({
+                'square': 'Площадь должна быть больше 0'
+            })
+
+        return super().validate(data)
 
 
 class RoomsSerializer(serializers.ModelSerializer):
@@ -66,8 +83,16 @@ class RoomsSerializer(serializers.ModelSerializer):
                 room_number=data['room_number'],
                 date_deleted__isnull=True
         ).exists():
-            raise serializers.ValidationError("Уже существует комната с этим номером")
-        return data
+            raise serializers.ValidationError({
+                'room_number': 'Уже существует комната с этим номером'
+            })
+
+        if data['room_number'] <= 0:
+            raise serializers.ValidationError({
+                'room_number': 'Номер комнаты должен быть больше 0'
+            })
+
+        return super().validate(data)
 
 
 class CreatePhotoSerializer(serializers.ModelSerializer):
@@ -83,23 +108,25 @@ class PhotosSerializer(serializers.ModelSerializer):
     """
     Сериалайзер для отображения и измения номеров
     """
+
+    # этот сериалайзер используется, для уже созданых объектов, поэтому фото уже есть и необязательно
+    path = serializers.ImageField(allow_empty_file=True, required=False)
+
     class Meta:
         model = Photo
         fields = ['id', 'path', 'order']
 
-    def __init__(self, *args, **kwargs):
-        super(PhotosSerializer, self).__init__(*args, **kwargs)
-
-        # этот сериалайзер используется, для изменения уже созданых объектов, поэтому фото уже есть и поле необязательное
-        self.fields['path'].allow_empty_file = True
-        self.fields['path'].required = False
-
     def validate(self, data):
         if data['order'] <= 0:
-            raise serializers.ValidationError("Порядковый номер должен быть больше 0")
+            raise serializers.ValidationError({
+                'order': 'Порядковый номер должен быть больше 0'
+            })
+
         # используется только при изменении, поменять местами может только с уже существуюшим фото
         if not self.instance.room_category.photos.filter(order=data['order']).exists():
-            raise serializers.ValidationError(f"Нет фото с таким порядковым номером")
+            raise serializers.ValidationError({
+                'order': 'Нет фото с таким порядковым номером'
+            })
 
-        return data
+        return super().validate(data)
 

@@ -1,8 +1,9 @@
 from django.urls import path
 
 from ..views import RoomsCategoriesListAPIView, RoomsListAPIView, PhotosListAPIView, \
-    RoomCategoryCreateAPIView, RoomCreateAPIView, PhotoCreateAPIView,\
-    RoomCategoryManageAPIView, RoomManageAPIView, PhotoManageAPIView
+    RoomCategoryCreateAPIView, RoomCreateAPIView, PhotoCreateAPIView, \
+    RoomCategoryManageAPIView, RoomManageAPIView, PhotoManageAPIView, \
+    CategoryTagsAPIView
 
 
 urlpatterns = [
@@ -15,4 +16,5 @@ urlpatterns = [
     path('<int:cat_id>/photos/', PhotosListAPIView.as_view()),
     path('<int:cat_id>/photos/create/', PhotoCreateAPIView.as_view()),
     path('<int:cat_id>/photos/<int:pk>/', PhotoManageAPIView.as_view()),
+    path('<int:cat_id>/tags/', CategoryTagsAPIView.as_view())
 ]

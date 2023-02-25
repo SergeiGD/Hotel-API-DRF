@@ -2,6 +2,7 @@ from django.db import models
 from django.utils import timezone
 
 from ..core.utils import build_photo_path
+from ..tags.models import Tag
 
 
 class RoomCategory(models.Model):
@@ -50,6 +51,13 @@ class RoomCategory(models.Model):
     is_hidden = models.BooleanField(
         verbose_name='скрыто',
         default=False
+    )
+    tags = models.ManyToManyField(
+        Tag,
+        related_name='rooms',
+        related_query_name='room',
+        verbose_name='теги',
+        blank=True
     )
 
     def mark_as_deleted(self):

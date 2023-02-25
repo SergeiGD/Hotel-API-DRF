@@ -9,9 +9,10 @@ https://docs.djangoproject.com/en/4.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
-
+import os
 from pathlib import Path
 from os import environ, path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -41,10 +42,16 @@ INSTALLED_APPS = [
     'apps.core.apps.CoreConfig',
     'django.contrib.staticfiles',
     'apps.rooms.apps.RoomsConfig',
+    'apps.tags.apps.TagsConfig',
+    'apps.users.apps.UsersConfig',
+    'apps.clients.apps.ClientsConfig',
+    'apps.workers.apps.WorkersConfig',
     'django_crontab',
     'django_cleanup.apps.CleanupConfig',
     'phonenumber_field',
     'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
@@ -140,3 +147,30 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CRON JOBS
 CRONJOBS = []
+
+
+# AUTH
+AUTH_USER_MODEL = 'users.CustomUser'
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+}
+
+
+# REST FRAMEWORK CONFIG
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
+
+
+# EMAIL SETTINGS
+EMAIL_USE_TLS = True
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_HOST_USER = environ.get('EMAIL_USER')
+EMAIL_HOST_PASSWORD = environ.get('EMAIL_PASSWORD')
