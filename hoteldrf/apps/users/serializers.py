@@ -8,7 +8,7 @@ from rest_framework_simplejwt.settings import api_settings
 
 class LoginSerializer(serializers.Serializer):
     """
-    Кастомный сериализатор для аутентификации (написан своя сугубо в учебных целях)
+    Кастомный сериализатор для аутентификации (написан свой сугубо в ознакомительных целях)
     """
     email = serializers.CharField(write_only=True)
     password = serializers.CharField(write_only=True)
@@ -32,7 +32,7 @@ class LoginSerializer(serializers.Serializer):
 
 class RefreshSerializer(serializers.Serializer):
     """
-    Кастомный сериализатор для обновления токена (написана своя сугубо в учебных целях)
+    Кастомный сериализатор для обновления токена (написан свой сугубо в ознакомительных целях)
     """
     refresh = serializers.CharField()
     access = serializers.CharField(read_only=True)

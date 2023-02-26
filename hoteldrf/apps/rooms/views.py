@@ -1,20 +1,18 @@
 from django.db.models import Max
-from django.shortcuts import render
 from rest_framework import generics, status
+from rest_framework.decorators import api_view
 from rest_framework.generics import get_object_or_404
-from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Room, RoomCategory, Photo
 from ..tags.models import Tag
-from ..tags.serializers import TagsSerializer
 from .serializers import RoomsCategoriesSerializer, RoomsSerializer, PhotosSerializer, CreatePhotoSerializer
 
 
-class RoomsCategoriesListAPIView(generics.ListAPIView):
+class RoomsCategoriesListAPIView(generics.ListCreateAPIView):
     """
-    Вью для получения списка категорий номеров
+    Вью для получения списка и создания категорий номеров
     """
     queryset = RoomCategory.objects.all()
     serializer_class = RoomsCategoriesSerializer
@@ -24,9 +22,9 @@ class RoomsCategoriesListAPIView(generics.ListAPIView):
         return RoomCategory.objects.filter(date_deleted=None)
 
 
-class RoomsListAPIView(generics.ListAPIView):
+class RoomsListAPIView(generics.ListCreateAPIView):
     """
-    Вью для получения списка номеров категории
+    Вью для получения списка и создания номеров категории
     """
     queryset = Room.objects.all()
     serializer_class = RoomsSerializer
@@ -35,32 +33,43 @@ class RoomsListAPIView(generics.ListAPIView):
         # Отображаем те, которые не удалены, категорию берем из url
         return Room.objects.filter(date_deleted=None, room_category_id=self.kwargs.get('cat_id'))
 
+    def perform_create(self, serializer):
+        # берем категорию из URL
+        room_cat = get_object_or_404(RoomCategory, pk=self.kwargs.get('cat_id'))
+        serializer.save(room_category=room_cat)
 
-class PhotosListAPIView(generics.ListAPIView):
+
+@api_view(['GET', 'POST'])
+def photos_list_api_view(request, cat_id):
     """
-    Вью для получения списка доп. фотографий категории номеров
+    Вью для получения списка фотографий категрии и добавления новых
     """
-    queryset = Photo.objects.all()
-    serializer_class = PhotosSerializer
+    if request.method == 'POST':
+        serializer = CreatePhotoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        room_cat = get_object_or_404(RoomCategory, pk=cat_id)
+        # при создании автоматически ставим порядковый номер на последний
+        if room_cat.photos.exists():
+            order = room_cat.photos.aggregate(Max('order'))['order__max'] + 1
+        else:
+            order = 1
+        serializer.save(room_category=room_cat, order=order)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def get_queryset(self):
-        # Отображаем те, которые не удалены, категорию берем из url
-        return Photo.objects.filter(room_category_id=self.kwargs.get('cat_id'))
+    if request.method == 'GET':
+        # категорию берем из url
+        queryset = Photo.objects.filter(room_category_id=cat_id)
+        serializer = PhotosSerializer(queryset, many=True)
+        return Response(list(serializer.data))
 
 
-class CategoryTagsAPIView(APIView):
+class CategoryTagsListAPIView(APIView):
     """
-    Вью для получения, добавления, удаления тегов категории номеров
+    Вью для получения списка и добавления тегов категории номеров
     """
     def get(self, request, cat_id):
         tags = Tag.objects.filter(room__id=cat_id).values()
         return Response(list(tags))
-
-    def delete(self, request, cat_id):
-        room_cat = get_object_or_404(RoomCategory, pk=cat_id)
-        tag = get_object_or_404(Tag, pk=request.data['tag_id'])
-        room_cat.tags.remove(tag)
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def post(self, request, cat_id):
         room_cat = get_object_or_404(RoomCategory, pk=cat_id)
@@ -70,43 +79,6 @@ class CategoryTagsAPIView(APIView):
             'room_category_id': room_cat.pk,
             'tag_id': tag.pk,
         })
-
-
-class RoomCategoryCreateAPIView(generics.CreateAPIView):
-    """
-    Вью для создания категорий номеров
-    """
-    queryset = RoomCategory.objects.all()
-    serializer_class = RoomsCategoriesSerializer
-
-
-class RoomCreateAPIView(generics.CreateAPIView):
-    """
-    Вью для создания номеров
-    """
-    queryset = Room.objects.all()
-    serializer_class = RoomsSerializer
-
-    def perform_create(self, serializer):
-        room_cat = get_object_or_404(RoomCategory, pk=self.kwargs.get('cat_id'))
-        serializer.save(room_category=room_cat)
-
-
-class PhotoCreateAPIView(generics.CreateAPIView):
-    """
-    Вью для создания доп. фотографий
-    """
-    queryset = Photo.objects.all()
-    serializer_class = CreatePhotoSerializer
-
-    def perform_create(self, serializer):
-        # при создании автоматически ставим порядковый номер на последний
-        room_cat = get_object_or_404(RoomCategory, pk=self.kwargs.get('cat_id'))
-        if room_cat.photos.exists():
-            order = room_cat.photos.aggregate(Max('order'))['order__max'] + 1
-        else:
-            order = 1
-        serializer.save(room_category=room_cat, order=order)
 
 
 class RoomCategoryManageAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -177,4 +149,16 @@ class PhotoManageAPIView(generics.RetrieveUpdateDestroyAPIView):
             photo.order -= 1
             photo.save()
         super().perform_destroy(instance)
+
+
+class CategoryTagManageAPIView(APIView):
+    """
+    Вью для удаления тега из категории
+    """
+
+    def delete(self, request, cat_id, pk):
+        room_cat = get_object_or_404(RoomCategory, pk=cat_id)
+        tag = get_object_or_404(Tag, pk=pk)
+        room_cat.tags.remove(tag)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 

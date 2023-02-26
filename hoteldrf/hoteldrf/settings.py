@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'apps.users.apps.UsersConfig',
     'apps.clients.apps.ClientsConfig',
     'apps.workers.apps.WorkersConfig',
+    'apps.orders.apps.OrdersConfig',
     'django_crontab',
     'django_cleanup.apps.CleanupConfig',
     'phonenumber_field',
@@ -174,3 +175,10 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_HOST_USER = environ.get('EMAIL_USER')
 EMAIL_HOST_PASSWORD = environ.get('EMAIL_PASSWORD')
+
+
+# ADDITIONAL SETTINGS
+try:
+    from .additional_settings.rooms_settings import *
+except ImportError:
+    pass
