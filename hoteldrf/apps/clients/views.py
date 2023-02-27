@@ -1,9 +1,9 @@
 from rest_framework.response import Response
-from rest_framework import generics, status
+from rest_framework import generics, status, viewsets
 from django.contrib.sites.shortcuts import get_current_site
 import jwt
 
-from .serializers import RegisterSerializer
+from .serializers import RegisterSerializer, ClientsSerializer
 from .models import Client
 from django.conf import settings
 from .utils import SendVerifyEmailMixin
@@ -68,3 +68,18 @@ class VerifyEmailAPIView(SendVerifyEmailMixin, generics.GenericAPIView):
                 'email': 'Невозможно подтврдить регистрацию, проверьте корректность ссылки'
             }, status=status.HTTP_400_BAD_REQUEST)
 
+
+class ClientsViewSet(viewsets.ModelViewSet):
+    """
+    Вьюсет для работы с клиентами
+    """
+    queryset = Client.objects.all()
+    serializer_class = ClientsSerializer
+
+    def get_queryset(self):
+        return Client.objects.filter(date_deleted=None, is_staff=False)
+
+    def perform_destroy(self, instance):
+        # переопределяем destroy, чтоб он просто почемал как удаленный, а не удалял реально
+        instance = self.get_object()
+        instance.mark_as_deleted()

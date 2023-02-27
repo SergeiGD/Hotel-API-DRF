@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import Room, RoomCategory, Photo
+from ..tags.models import Tag
 
 
 class RoomsCategoriesSerializer(serializers.ModelSerializer):
@@ -129,4 +130,19 @@ class PhotosSerializer(serializers.ModelSerializer):
             })
 
         return super().validate(data)
+
+
+class CatTagsSerializer(serializers.ModelSerializer):
+    """
+    Сериалайзер для добавления тегов к комнате
+    """
+    tags = serializers.PrimaryKeyRelatedField(queryset=Tag.objects.all())
+
+    class Meta:
+        model = RoomCategory
+        fields = ['tags']
+
+    def update(self, instance, validated_data):
+        instance.tags.add(validated_data['tags'])
+        return instance
 

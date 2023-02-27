@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'apps.clients.apps.ClientsConfig',
     'apps.workers.apps.WorkersConfig',
     'apps.orders.apps.OrdersConfig',
+    'apps.sales.apps.SalesConfig',
     'django_crontab',
     'django_cleanup.apps.CleanupConfig',
     'phonenumber_field',

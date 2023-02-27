@@ -1,6 +1,7 @@
+import datetime
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import Sum, Max
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -222,6 +223,12 @@ class Purchase(models.Model):
         verbose_name='Отменено'
     )
 
+    # def get_active_sales(self):
+    #     sales = self.room.room_category.sales.filter(
+    #         start_date__lte=datetime.datetime.today(),
+    #         end_date__gt=datetime.datetime.today()
+    #     )
+
     def get_payment_info(self):
         """
         Метод для получения актуальной (обновленной) цены, предоплаты, возврата
@@ -233,6 +240,17 @@ class Purchase(models.Model):
         # окрулгям, т.к. часы заезда может не часам времени выезда
         days = round(Decimal(delta_seconds / seconds_in_day), 0)
         price = room_category.default_price * days
+        # смотрим есть ли активные скидки
+        sales = self.room.room_category.sales.filter(
+            start_date__lte=datetime.datetime.today(),
+            end_date__gt=datetime.datetime.today()
+        )
+        if sales:
+            # если есть, то применяем максимальную из них
+            biggest_sale = sales.aggregate(Max('discount')).get('discount__max', 0)
+            sale__ratio = Decimal(biggest_sale) / 100
+            if sale__ratio > 0:
+                price = price - (price * sale__ratio)
 
         prepayment_ratio = Decimal(room_category.prepayment_percent) / 100
         prepayment = price * prepayment_ratio

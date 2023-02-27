@@ -1,16 +1,19 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework import routers
 
-from ..views import RoomsCategoriesListAPIView, RoomsListAPIView, photos_list_api_view, CategoryTagsListAPIView, \
-    RoomCategoryManageAPIView, RoomManageAPIView, PhotoManageAPIView, CategoryTagManageAPIView \
+from ..views import RoomsCategoriesViewSet, RoomsListAPIView, photos_list_api_view, CategoryTagsListAPIView, \
+    RoomManageAPIView, PhotoManageAPIView, CategoryTagManageAPIView \
 
+
+router = routers.SimpleRouter()
+router.register(r'', RoomsCategoriesViewSet)
 
 urlpatterns = [
-    path('', RoomsCategoriesListAPIView.as_view()),
-    path('<int:pk>', RoomCategoryManageAPIView.as_view()),
-    path('<int:cat_id>/rooms', RoomsListAPIView.as_view()),
-    path('<int:cat_id>/rooms/<int:pk>', RoomManageAPIView.as_view()),
-    path('<int:cat_id>/photos', photos_list_api_view),
-    path('<int:cat_id>/photos/<int:pk>', PhotoManageAPIView.as_view()),
-    path('<int:cat_id>/tags', CategoryTagsListAPIView.as_view()),
-    path('<int:cat_id>/tags/<int:pk>', CategoryTagManageAPIView.as_view())
+    path('', include(router.urls)),
+    path('<int:pk>/rooms', RoomsListAPIView.as_view()),
+    path('<int:pk>/rooms/<int:room_id>', RoomManageAPIView.as_view()),
+    path('<int:pk>/photos', photos_list_api_view),
+    path('<int:pk>/photos/<int:photo_id>', PhotoManageAPIView.as_view()),
+    path('<int:pk>/tags', CategoryTagsListAPIView.as_view()),
+    path('<int:pk>/tags/<int:tag_id>', CategoryTagManageAPIView.as_view())
 ]

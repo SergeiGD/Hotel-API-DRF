@@ -1,10 +1,12 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework import routers
 
-from ..views import TagsListAPIView, TagsCreateAPIView, TagsManageAPIView
+from ..views import TagsViewSet
 
+
+router = routers.SimpleRouter()
+router.register(r'', TagsViewSet)
 
 urlpatterns = [
-    path('', TagsListAPIView.as_view()),
-    path('create', TagsCreateAPIView.as_view()),
-    path('<int:pk>', TagsManageAPIView.as_view()),
+    path('', include(router.urls))
 ]

@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from ..core.utils import build_photo_path
@@ -67,6 +68,17 @@ class RoomCategory(models.Model):
 
     def get_rooms(self):
         return Room.objects.filter(room_category_id=self.id, date_deleted=None)
+
+    def get_familiar(self):
+        have_same_tags = RoomCategory.objects.filter(
+            date_deleted=None, is_hidden=False, tags__in=self.tags.all()
+        ).exclude(pk=self.pk).distinct()
+        familiar = have_same_tags.annotate(
+            count_familiar=Count('tags', filter=Q(tags__in=self.tags.all()))
+        ).order_by('-count_familiar')
+        if len(familiar) < 3:
+            return familiar.all()
+        return familiar[0:3]
 
     class Meta:
         ordering = ['-date_created']

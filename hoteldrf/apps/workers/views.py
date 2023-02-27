@@ -1,25 +1,12 @@
-from django.shortcuts import render
-from rest_framework import generics, status
-from rest_framework.response import Response
+from rest_framework import viewsets
 
 from .models import Worker
 from .serializers import WorkersSerializer
 
 
-class WorkersListAPIView(generics.ListCreateAPIView):
+class WorkersViewSet(viewsets.ModelViewSet):
     """
-    Вью для просмотра и создания сотрудников
-    """
-    queryset = Worker.objects.all()
-    serializer_class = WorkersSerializer
-
-    def get_queryset(self):
-        return Worker.objects.filter(date_deleted=None)
-
-
-class WorkersManageAPIView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    Вью для просмотра, удаления и изменения сотрудника
+    Вьюсет для работы с сотрудниками
     """
     queryset = Worker.objects.all()
     serializer_class = WorkersSerializer
@@ -31,4 +18,3 @@ class WorkersManageAPIView(generics.RetrieveUpdateDestroyAPIView):
         # переопределяем destroy, чтоб он просто почемал как удаленный, а не удалял реально
         instance = self.get_object()
         instance.mark_as_deleted()
-        return Response(status=status.HTTP_204_NO_CONTENT)
