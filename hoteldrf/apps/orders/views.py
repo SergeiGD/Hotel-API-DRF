@@ -5,8 +5,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Order, Purchase
-from .serializers import CreateOrderSerializer, CreatePurchaseSerializer, OrdersSerializer, \
-                        PurchasesSerializer, EditOrderSerializer, EditPurchaseSerializer
+# from .serializers import CreateOrderSerializer, CreatePurchaseSerializer, OrdersSerializer, \
+#                         PurchasesSerializer, EditOrderSerializer, EditPurchaseSerializer, CreatePurchaseSerializer2
+
+from .serializers import CreateOrderSerializer, OrdersSerializer, EditPurchaseSerializer, \
+                        PurchasesSerializer, EditOrderSerializer, CreatePurchaseSerializer
 
 
 class OrdersListAPIView(APIView):

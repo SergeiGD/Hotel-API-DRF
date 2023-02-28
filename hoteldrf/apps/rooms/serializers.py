@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.generics import get_object_or_404
 
 from .models import Room, RoomCategory, Photo
 from ..tags.models import Tag
@@ -37,7 +38,7 @@ class RoomsCategoriesSerializer(serializers.ModelSerializer):
 
         if data['refund_percent'] <= 0 or data['refund_percent'] > 100:
             raise serializers.ValidationError({
-                'refund': 'Возврат должен быть больше 0 и не больше 100"'
+                'refund': 'Возврат должен быть больше 0 и не больше 100'
             })
 
         if data['rooms_count'] <= 0:
@@ -145,4 +146,5 @@ class CatTagsSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         instance.tags.add(validated_data['tags'])
         return instance
+
 

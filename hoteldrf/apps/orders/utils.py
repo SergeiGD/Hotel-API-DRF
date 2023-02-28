@@ -1,8 +1,6 @@
 from rest_framework import serializers
-from django.utils import timezone
-import datetime
 
-from django.conf import settings
+from django.apps import apps
 
 
 class PurchaseUtil:
@@ -27,23 +25,38 @@ class PurchaseUtil:
 
 class PurchaseSerializerMixin:
     def validate_dates(self, data):
-        start = data['start'].date()
-        end = data['end'].date()
+        start = data['start']
+        end = data['end']
 
         if start >= end:
             raise serializers.ValidationError({
                 'start': 'Дата конца должно больше даты начала минимум на один день'
             })
 
-        # устанавливаем часы заезда и выезда
-        start = datetime.datetime.combine(start, settings.CHECK_IN_TIME)
-        end = datetime.datetime.combine(end, settings.CHECK_OUT_TIME)
+        return data
 
-        # устанавливаем часовой пояс
-        start = timezone.make_aware(start)
-        end = timezone.make_aware(end)
+    def create_purchases(self, picked_rooms, order):
+        if not picked_rooms:
+            raise serializers.ValidationError({
+                "start": "На данный промежуток времени нету свободных комнат этой категории"
+            })
 
-        return {
-            'start': start,
-            'end': end
-        }
+        purchases = []
+        for room in picked_rooms:
+            # создаем покупку
+            purchase = apps.get_model('orders.Purchase')(
+                room_id=room['room'],
+                start=room['start'],
+                end=room['end'],
+                order=order
+            )
+            # получаем расчитанные цены
+            payment_info = purchase.get_payment_info()
+            purchase.price = payment_info['price']
+            purchase.prepayment = payment_info['prepayment']
+            purchase.refund = payment_info['refund']
+            # сохраняем объект, будет вызван сигнал presave (см в модели)
+            purchase.save()
+            # добавляем к списку созданных
+            purchases.append(purchase)
+        return purchases

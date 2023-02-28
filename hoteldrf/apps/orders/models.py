@@ -2,12 +2,12 @@ import datetime
 from decimal import Decimal
 
 from django.db.models import Sum, Max
-from django.db.models.signals import pre_save
+from django.db.models.signals import pre_save, pre_delete, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from django.db import models
 
-from ..rooms.models import Room
+# from ..rooms.models import Room
 from .utils import PurchaseUtil
 
 
@@ -171,7 +171,7 @@ class Order(models.Model):
         # все не оплаченные покупки, которые еще не отменены, ставим как отмененные
         self.purchases.filter(is_canceled=False, is_paid=False).update(is_canceled=True)
         self.save()
-    
+
 
 class Purchase(models.Model):
     order = models.ForeignKey(
@@ -181,14 +181,14 @@ class Purchase(models.Model):
         verbose_name='заказ'
     )
     room = models.ForeignKey(
-        Room,
+        'rooms.Room',
         on_delete=models.CASCADE,
         related_name='purchases',
         verbose_name='комната'
     )
 
-    start = models.DateTimeField()
-    end = models.DateTimeField()
+    start = models.DateField()
+    end = models.DateField()
 
     price = models.DecimalField(
         max_digits=12,
@@ -222,12 +222,6 @@ class Purchase(models.Model):
         default=False,
         verbose_name='Отменено'
     )
-
-    # def get_active_sales(self):
-    #     sales = self.room.room_category.sales.filter(
-    #         start_date__lte=datetime.datetime.today(),
-    #         end_date__gt=datetime.datetime.today()
-    #     )
 
     def get_payment_info(self):
         """
@@ -275,14 +269,11 @@ class Purchase(models.Model):
             self.is_canceled = True
             self.save()
         else:
-            # если ничего оплачено не было, то удалем покупку, предварительно изменив цену заказа
-            self.order.price -= self.price
             self.delete()
-            self.order.save()
 
 
-@receiver(pre_save, sender=Purchase, dispatch_uid='update_order_price')
-def update_order_price(sender, instance, **kwargs):
+@receiver(pre_save, sender=Purchase, dispatch_uid='update_purchase')
+def update_purchase(sender, instance, **kwargs):
     """
     Pre save сигнал для обновления цены заказа при изменении покупки
     """
@@ -295,6 +286,16 @@ def update_order_price(sender, instance, **kwargs):
     # прибавляем текущую цену
     instance.order.price += PurchaseUtil.calc_price_in_order(instance)
     # сохраняем заказ, будет вызван метод update_payment заказа, для обновления статуса оплаты
+    instance.order.save()
+
+
+@receiver(post_delete, sender=Purchase, dispatch_uid='delete_purchase')
+def delete_purchase(sender, instance, **kwargs):
+    """
+    Pre delete сигнал для обновления цены заказа при удалении покупки
+    """
+    # отнимаем цену покупки и сохраняем заказ, будет вызван метод update_payment заказа для обновления статуса оплаты
+    instance.order.price -= PurchaseUtil.calc_price_in_order(instance)
     instance.order.save()
 
 

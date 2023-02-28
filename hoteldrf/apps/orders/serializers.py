@@ -2,8 +2,11 @@ from rest_framework import serializers
 from django.utils import timezone
 import datetime
 
+from rest_framework.utils.serializer_helpers import ReturnDict
+
 from .models import Order, Purchase
 from .utils import PurchaseSerializerMixin
+from ..rooms.models import RoomCategory
 from django.conf import settings
 
 
@@ -52,32 +55,37 @@ class EditOrderSerializer(serializers.ModelSerializer):
         return data
 
 
-class CreatePurchaseSerializer(PurchaseSerializerMixin, serializers.ModelSerializer):
-    price = serializers.DecimalField(read_only=True, max_digits=12, decimal_places=2)
-
-    class Meta:
-        model = Purchase
-        fields = ['room', 'start', 'end', 'price']
+class CreatePurchaseSerializer(PurchaseSerializerMixin, serializers.Serializer):
+    room_cat = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        queryset=RoomCategory.objects.filter(date_deleted=None)
+    )
+    start = serializers.DateField()
+    end = serializers.DateField()
 
     def validate(self, data):
         return {
             **self.validate_dates(data),
-            'room': data['room']
+            'room_cat': data['room_cat']
         }
 
     def create(self, validated_data):
         """
-        Кастомное сохранение для установки автовычисляемых полей
+        Подбор комнат и создание из них покупок для заказа
         """
-        purchase = Purchase(**validated_data)
-        payment_info = purchase.get_payment_info()
-        # получаем расчитанные цены
-        purchase.price = payment_info['price']
-        purchase.prepayment = payment_info['prepayment']
-        purchase.refund = payment_info['refund']
-        # сохраняем объект, будет вызван сигнал presave (см в модели)
-        purchase.save()
-        return purchase
+        room_cat = validated_data['room_cat']
+        picked_rooms = room_cat.pick_rooms_for_purchase(validated_data['start'], validated_data['end'])
+
+        return self.create_purchases(picked_rooms, validated_data['order'])
+
+    @property
+    def data(self):
+        """
+        Переопределенная data, т.к. сериалайзер у нас инциализируется Many=False, а после создания
+        возвращается коллекция объектом
+        """
+        serializer = PurchasesSerializer(self.instance, many=True)
+        return serializer.data
 
 
 class PurchasesSerializer(serializers.ModelSerializer):
@@ -102,24 +110,35 @@ class EditPurchaseSerializer(PurchaseSerializerMixin, serializers.ModelSerialize
         if self.partial:
             # если не передали начало/конец, то берем текущие данные модели
             if 'start' not in data:
-                # т.к. приходит время без часового пояса, сравнивать мы должно тоже без него
-                data_to_validate['start'] = timezone.make_naive(self.instance.start)
+                # data_to_validate['start'] = timezone.make_naive(self.instance.start)
+                data_to_validate['start'] = self.instance.start
             if 'end' not in data:
-                data_to_validate['end'] = timezone.make_naive(self.instance.end)
+                # data_to_validate['end'] = timezone.make_naive(self.instance.end)
+                data_to_validate['end'] = self.instance.end
         return self.validate_dates(data_to_validate)
 
     def update(self, instance, validated_data):
         """
-        Кастомное сохранение для установки автовычисляемых полей
+        Подбор комнат и создание из них покупок для заказа
         """
-        # устанавливаем прочие атрибуты (даты)
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        payment_info = instance.get_payment_info()
-        # получаем расчитанные цены
-        instance.price = payment_info['price']
-        instance.prepayment = payment_info['prepayment']
-        instance.refund = payment_info['refund']
-        # сохраняем объект, будет вызван сигнал presave (см в модели)
-        instance.save()
-        return instance
+        purchase = instance
+        room_cat = purchase.room.room_category
+        order = purchase.order
+        picked_rooms = room_cat.pick_rooms_for_purchase(
+            validated_data['start'],
+            validated_data['end'],
+            purchase.id
+        )
+        if picked_rooms:
+            purchase.delete()
+
+        return self.create_purchases(picked_rooms, order)
+
+    @property
+    def data(self):
+        """
+        Переопределенная data, т.к. сериалайзер у нас инциализируется Many=False, а после создания
+        возвращается коллекция объектом
+        """
+        serializer = PurchasesSerializer(self.instance, many=True)
+        return serializer.data

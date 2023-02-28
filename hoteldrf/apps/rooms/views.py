@@ -1,3 +1,5 @@
+import datetime
+
 from django.db.models import Max, F
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import api_view, action
@@ -30,6 +32,24 @@ class RoomsCategoriesViewSet(viewsets.ModelViewSet):
         familiar = self.get_object().get_familiar()
         serializer = self.get_serializer(familiar, many=True)
         return Response(serializer.data)
+
+    @action(methods=['GET'], detail=True, url_path='busy_dates')
+    def busy_dates(self, request, **kwargs):
+        """
+        Дополнительный action для занятых дат
+        """
+        # формуруем даты начала
+        dates_start = datetime.datetime.strptime(
+            request.query_params.get("dates_start"),
+            '%Y-%m-%d'
+        ).date()
+        dates_end = datetime.datetime.strptime(
+            request.query_params.get("dates_end"),
+            '%Y-%m-%d'
+        ).date()
+        # получаем список занятых дат
+        busy_dates = self.get_object().get_busy_dates(dates_start, dates_end)
+        return Response(busy_dates)
 
     def perform_destroy(self, instance):
         # переопределяем destroy, чтоб он просто почемал как удаленный, а не удалял реально
