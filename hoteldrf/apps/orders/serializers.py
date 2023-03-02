@@ -8,6 +8,7 @@ from .models import Order, Purchase
 from .utils import PurchaseSerializerMixin
 from ..rooms.models import RoomCategory
 from django.conf import settings
+from django.apps import apps
 
 
 class CreateOrderSerializer(serializers.ModelSerializer):
@@ -26,7 +27,8 @@ class OrdersSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = '__all__'
+        # не fields = '__all__' чтоб было удобнее переопределить в ClientOrdersSerializer
+        exclude = []
 
 
 class EditOrderSerializer(serializers.ModelSerializer):
@@ -55,13 +57,24 @@ class EditOrderSerializer(serializers.ModelSerializer):
         return data
 
 
+class PurchasesSerializer(serializers.ModelSerializer):
+    room_category = serializers.SerializerMethodField()
+
+    def get_room_category(self, instance):
+        return instance.room.room_category.id
+
+    class Meta:
+        model = Purchase
+        exclude = ['order', ]
+
+
 class CreatePurchaseSerializer(PurchaseSerializerMixin, serializers.Serializer):
     room_cat = serializers.PrimaryKeyRelatedField(
         write_only=True,
-        queryset=RoomCategory.objects.filter(date_deleted=None)
+        queryset=RoomCategory.objects.filter(date_deleted=None),
     )
-    start = serializers.DateField()
-    end = serializers.DateField()
+    start = serializers.DateField(write_only=True)
+    end = serializers.DateField(write_only=True)
 
     def validate(self, data):
         return {
@@ -86,13 +99,6 @@ class CreatePurchaseSerializer(PurchaseSerializerMixin, serializers.Serializer):
         """
         serializer = PurchasesSerializer(self.instance, many=True)
         return serializer.data
-
-
-class PurchasesSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Purchase
-        fields = '__all__'
 
 
 class EditPurchaseSerializer(PurchaseSerializerMixin, serializers.ModelSerializer):

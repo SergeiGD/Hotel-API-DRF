@@ -118,12 +118,17 @@ class RoomCategory(models.Model):
         """
         Метод для получения занятых дат в диапозоне
         """
+        if dates_end < datetime.date.today():
+            # если запрашиваем прошедшие даты, то проверять смысла нету и возвращаем, что все занято
+            return sorted([dates_start+datetime.timedelta(days=x) for x in range((dates_end-dates_start).days + 1)])
+
         current_day = dates_start
-        busy_dates = set()
+        busy_dates = []
         while current_day <= dates_end:
-            if self.is_day_busy(current_day):
-                busy_dates.add(current_day)
+            if current_day < datetime.date.today() or self.is_day_busy(current_day):
+                busy_dates.append(current_day)
             current_day += datetime.timedelta(days=1)
+        busy_dates.sort()
         return busy_dates
 
     def pick_rooms_for_purchase(self, start, end, purchase_id=None):

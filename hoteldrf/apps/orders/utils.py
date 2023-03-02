@@ -60,3 +60,4 @@ class PurchaseSerializerMixin:
             # добавляем к списку созданных
             purchases.append(purchase)
         return purchases
+

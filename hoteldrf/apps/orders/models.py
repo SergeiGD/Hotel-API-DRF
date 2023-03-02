@@ -1,6 +1,8 @@
 import datetime
 from decimal import Decimal
+import uuid
 
+from django.contrib.contenttypes.fields import GenericRelation
 from django.db.models import Sum, Max
 from django.db.models.signals import pre_save, pre_delete, post_delete
 from django.dispatch import receiver
@@ -10,12 +12,27 @@ from django.db import models
 # from ..rooms.models import Room
 from .utils import PurchaseUtil
 
+class OrdersManager(models.Manager):
+    def create_cart(self):
+        return self.create(
+            cart_uuid=uuid.uuid4()
+        )
+
 
 class Order(models.Model):
     client = models.ForeignKey(
-        'users.CustomUser', 
-        on_delete=models.PROTECT, 
-        verbose_name='Клиент'
+        'clients.Client',
+        on_delete=models.PROTECT,
+        related_name='orders',
+        related_query_name='order',
+        verbose_name='Клиент',
+        null=True,
+        blank=True
+    )
+    # заказ без пользователя и с cart_uuid - это корзина
+    cart_uuid = models.UUIDField(
+        null=True,
+        blank=True
     )
     comment = models.TextField(
         verbose_name='комментарий к заказу',
@@ -105,6 +122,21 @@ class Order(models.Model):
             return left_to_refund
         return 0
 
+    @property
+    def is_cart(self):
+        """
+        Является ли заказ корзиной
+        """
+        if self.client is not None:
+            return False
+        if self.cart_uuid is None:
+            return False
+        if self.paid > 0 or self.refunded > 0:
+            return False
+        return True
+
+    objects = OrdersManager()
+
     def save(self, *args, **kwargs):
         # переопределяем сохранение, чтоб дополнительно обновить автовычисляемые поля
         if self.pk:
@@ -170,6 +202,20 @@ class Order(models.Model):
         self.date_finished = None
         # все не оплаченные покупки, которые еще не отменены, ставим как отмененные
         self.purchases.filter(is_canceled=False, is_paid=False).update(is_canceled=True)
+        self.save()
+
+    def mark_as_prepayment_paid(self):
+        """
+        Отметить предоплату как уплаченную
+        """
+        self.paid = self.prepayment
+        self.save()
+
+    def mark_as_paid(self):
+        """
+        Отметить предоплату как уплаченную
+        """
+        self.paid = self.price
         self.save()
 
 
@@ -299,4 +345,13 @@ def delete_purchase(sender, instance, **kwargs):
     instance.order.save()
 
 
-
+# class Cart(models.Model):
+#     id = models.UUIDField(
+#         primary_key=True,
+#         default=uuid.uuid4,
+#         editable=False
+#     )
+#     date_created = models.DateTimeField(
+#         auto_now_add=True
+#     )
+#     purchases = GenericRelation(Purchase)

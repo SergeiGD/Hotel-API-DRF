@@ -172,7 +172,8 @@ REST_FRAMEWORK = {
 
 # EMAIL SETTINGS
 EMAIL_USE_TLS = True
-EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST = environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = 587
 EMAIL_HOST_USER = environ.get('EMAIL_USER')
 EMAIL_HOST_PASSWORD = environ.get('EMAIL_PASSWORD')

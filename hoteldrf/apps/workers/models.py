@@ -13,5 +13,7 @@ class Worker(CustomUser):
 
     def mark_as_deleted(self):
         self.date_deleted = timezone.now()
+        self.is_staff = False
+        self.is_active = False
         self.save()
 

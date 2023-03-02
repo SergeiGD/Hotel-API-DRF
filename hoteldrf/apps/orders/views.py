@@ -5,11 +5,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Order, Purchase
-# from .serializers import CreateOrderSerializer, CreatePurchaseSerializer, OrdersSerializer, \
-#                         PurchasesSerializer, EditOrderSerializer, EditPurchaseSerializer, CreatePurchaseSerializer2
 
-from .serializers import CreateOrderSerializer, OrdersSerializer, EditPurchaseSerializer, \
-                        PurchasesSerializer, EditOrderSerializer, CreatePurchaseSerializer
+from .serializers import CreateOrderSerializer, OrdersSerializer, \
+                        PurchasesSerializer, EditOrderSerializer
+
+from .mixins import PurchaseManageMixin, PurchaseCreateMixin
 
 
 class OrdersListAPIView(APIView):
@@ -48,40 +48,21 @@ class OrderManageAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class PurchasesListAPIView(APIView):
+class PurchasesListAPIView(PurchaseCreateMixin, APIView):
     """
     Вью для получения списка и создания покупок заказа
     """
+    def get_object(self):
+        return get_object_or_404(Order, pk=self.kwargs['pk'])
+
     def get(self, request, pk):
-        order = get_object_or_404(Order, pk=pk)
-        serializer = PurchasesSerializer(order.purchases.all(), many=True)
+        serializer = PurchasesSerializer(self.get_object().purchases.all(), many=True)
         return Response(serializer.data)
 
-    def post(self, request, pk):
-        order = get_object_or_404(Order, pk=pk)
-        serializer = CreatePurchaseSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(order=order)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+class PurchaseManageAPIView(PurchaseManageMixin, APIView):
+    def get_object(self):
+        return get_object_or_404(Purchase, pk=self.kwargs['purchase_id'], order_id=self.kwargs['pk'])
 
-class PurchaseManageAPIView(APIView):
-    def get(self, request, purchase_id, pk):
-        purchase = get_object_or_404(Purchase, pk=purchase_id, order_id=pk)
-        serializer = PurchasesSerializer(purchase)
-        return Response(serializer.data)
-
-    def patch(self, request, purchase_id, pk):
-        purchase = get_object_or_404(Purchase, pk=purchase_id, order_id=pk)
-        serializer = EditPurchaseSerializer(instance=purchase, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def delete(self, request, purchase_id, pk):
-        purchase = get_object_or_404(Purchase, pk=purchase_id, order_id=pk)
-        # не удаляем, а отмечаем как отмененный
-        purchase.mark_as_canceled()
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
