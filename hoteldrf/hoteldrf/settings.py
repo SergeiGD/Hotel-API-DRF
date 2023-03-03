@@ -64,6 +64,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.core.middleware.idempotency_key_middleware'
 ]
 
 ROOT_URLCONF = 'hoteldrf.urls'
@@ -148,7 +149,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # CRON JOBS
-CRONJOBS = []
+CRONJOBS = [
+    ('0 * * * *', 'apps.core.cron.clean_carts_job'),
+    ('0 * * * *', 'apps.core.cron.finish_orders_job'),
+    ('0 * * * *', 'apps.core.cron.clean_idempotency_keys')
+]
 
 
 # AUTH

@@ -3,7 +3,7 @@ from decimal import Decimal
 import uuid
 
 from django.contrib.contenttypes.fields import GenericRelation
-from django.db.models import Sum, Max
+from django.db.models import Sum, Max, Q
 from django.db.models.signals import pre_save, pre_delete, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
@@ -11,6 +11,7 @@ from django.db import models
 
 # from ..rooms.models import Room
 from .utils import PurchaseUtil
+
 
 class OrdersManager(models.Manager):
     def create_cart(self):
@@ -217,6 +218,15 @@ class Order(models.Model):
         """
         self.paid = self.price
         self.save()
+
+    def mark_as_finished(self):
+        self.date_canceled = None
+        self.date_finished = timezone.now()
+        self.purchases.exclude(
+            Q(is_paid=True) | Q(is_canceled=True)
+        ).update(is_canceled=True)
+        self.save()
+
 
 
 class Purchase(models.Model):
