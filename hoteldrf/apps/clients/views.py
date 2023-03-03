@@ -1,3 +1,7 @@
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.urls import reverse
+from django.utils.encoding import smart_str, smart_bytes
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework import generics, status, viewsets
@@ -32,7 +36,9 @@ class RegisterAPIView(SendVerifyEmailMixin, generics.GenericAPIView):
         # отправляем письмо с подтверждением регистрации
         self.send_verify_email(client=client, domain=get_current_site(request).domain)
 
-        return Response(client_data, status=status.HTTP_201_CREATED)
+        return Response({
+            'success': 'На почту отправлено письмо для подтверждения регистрации'
+        }, status=status.HTTP_201_CREATED)
 
 
 class VerifyEmailAPIView(SendVerifyEmailMixin, generics.GenericAPIView):
@@ -203,8 +209,13 @@ class ClientOrderPayAPIView(ClientOrdersMixin, APIView):
 
 
 class ClientProfileInfo(ClientMixin, generics.RetrieveUpdateAPIView):
+    """
+    Вью для просмотра и изменения профиля клиента
+    """
     serializer_class = ClientProfileSerializer
 
     def get_object(self):
         return self.get_client()
+
+
 

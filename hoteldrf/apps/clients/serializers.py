@@ -1,8 +1,11 @@
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.http import urlsafe_base64_encode
 from rest_framework import serializers
 
 from .models import Client
 from ..orders.models import Order
 from ..orders.serializers import PurchasesSerializer, OrdersSerializer, CreatePurchaseSerializer, EditPurchaseSerializer
+from ..users.models import CustomUser
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -140,6 +143,9 @@ class ClientOrdersSerializer(OrdersSerializer):
 
 
 class ClientProfileSerializer(serializers.ModelSerializer):
+    """
+    Сериалайзер для профиля клиента
+    """
     orders_count = serializers.ReadOnlyField()
 
     class Meta:

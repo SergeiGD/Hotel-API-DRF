@@ -5,6 +5,8 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.settings import api_settings
 
+from .models import CustomUser
+
 
 class LoginSerializer(serializers.Serializer):
     """
@@ -62,3 +64,47 @@ class RefreshSerializer(serializers.Serializer):
             'access': str(refresh.access_token)
         }
 
+
+class RequestPasswordResetSerializer(serializers.Serializer):
+    """
+    Сериалайзер для запроса смены пароля
+    """
+    email = serializers.EmailField(required=True)
+
+    def validate(self, data):
+        # если ли активный пользователь с указанной почтой
+        if not Client.objects.filter(
+            email=data['email'],
+            is_active=True
+        ).exists():
+            raise serializers.ValidationError({
+                'email': '  Не найден активный пользователь с таким адресом эл. почты'
+            })
+
+        return data
+
+
+class SetNewPasswordSerializer(serializers.ModelSerializer):
+    """
+    Сериалайзер для установки установки новго пароля
+    """
+    password1 = serializers.CharField(min_length=6, write_only=True)
+    password2 = serializers.CharField(min_length=6, write_only=True)
+
+    class Meta:
+        model = CustomUser
+        fields = ['password1', 'password2']
+
+    def validate(self, data):
+        if data['password1'] != data['password2']:
+            raise serializers.ValidationError({
+                'password': 'Пароли не совпадают'
+            })
+
+        return super().validate(data)
+
+    def update(self, instance, validated_data):
+        # переопределяем update для установки пароля
+        instance.set_password(validated_data['password1'])
+        instance.save()
+        return instance

@@ -19,7 +19,7 @@ def idempotency_key_middleware(get_response):
             # если нету ключа, то возвращем ошибку
             if 'Idempotency-Key' not in request.headers:
                 return gen_middleware_response(
-                    {'detail': 'У запроса отсуствует ключ индепотености'},
+                    {'error': 'У запроса отсуствует ключ индепотености (заголовок Idempotency-Key)'},
                     status.HTTP_409_CONFLICT
                 )
 
@@ -28,14 +28,14 @@ def idempotency_key_middleware(get_response):
             # проверка корректности фотрмата ключа
             if not check_uuid(idempotency_key):
                 return gen_middleware_response(
-                    {'detail': 'Неверный формат ключа индепотености (необходим UUID4)'},
+                    {'error': 'Неверный формат ключа индепотености (необходим UUID4)'},
                     status.HTTP_409_CONFLICT
                 )
 
             # если такой ключ уже был использовал, то возвращаем ошибку
             if IdempotencyKey.objects.filter(id=idempotency_key).exists():
                 return gen_middleware_response(
-                    {'detail': 'Запрос с таким ключ уже был сделан'},
+                    {'error': 'Запрос с таким ключ уже был сделан'},
                     status.HTTP_409_CONFLICT
                 )
 

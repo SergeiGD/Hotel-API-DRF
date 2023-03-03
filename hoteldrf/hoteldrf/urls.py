@@ -29,4 +29,5 @@ urlpatterns = [
     path('api/login/', include('apps.users.urls.login_urls')),
     path('api/cart/', include('apps.clients.urls.cart_urls')),
     path('api/profile/', include('apps.clients.urls.profile_urls')),
+    path('api/reset_password/', include('apps.users.urls.reset_password_urls')),
 ]
