@@ -2,25 +2,48 @@ import datetime
 from decimal import Decimal
 import uuid
 
-from django.contrib.contenttypes.fields import GenericRelation
 from django.db.models import Sum, Max, Q
 from django.db.models.signals import pre_save, pre_delete, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from django.db import models
 
-# from ..rooms.models import Room
 from .utils import PurchaseUtil
 
 
-class OrdersManager(models.Manager):
-    def create_cart(self):
-        return self.create(
-            cart_uuid=uuid.uuid4()
-        )
+class BaseOrder(models.Model):
+    price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name='Стоимость'
+    )
+    date_created = models.DateTimeField(
+        verbose_name='дата создания',
+        auto_now_add=True
+    )
+
+    @property
+    def prepayment(self):
+        """
+        Свойство для получения предоплаты
+        """
+        # если заказ еще не сохранен в БД или нету активных покупок, то предоплата 0
+        if not self.pk or not self.purchases.filter(is_canceled=False).exists():
+            return 0
+        return self.purchases.filter(is_canceled=False).aggregate(Sum('prepayment')).get('prepayment__sum', 0)
 
 
-class Order(models.Model):
+class Cart(BaseOrder):
+    cart_uuid = models.UUIDField(
+        null=True,
+        blank=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+
+
+class Order(BaseOrder):
     client = models.ForeignKey(
         'clients.Client',
         on_delete=models.PROTECT,
@@ -30,21 +53,10 @@ class Order(models.Model):
         null=True,
         blank=True
     )
-    # заказ без пользователя и с cart_uuid - это корзина
-    cart_uuid = models.UUIDField(
-        null=True,
-        blank=True
-    )
     comment = models.TextField(
         verbose_name='комментарий к заказу',
         blank=True, 
         null=True
-    )
-    price = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=0,
-        verbose_name='Стоимость'
     )
     paid = models.DecimalField(
         max_digits=12, 
@@ -57,10 +69,6 @@ class Order(models.Model):
         decimal_places=2, 
         default=0, 
         verbose_name='Возвращено'
-    )
-    date_created = models.DateTimeField(
-        verbose_name='дата создания', 
-        auto_now_add=True
     )
     date_full_prepayment = models.DateTimeField(
         verbose_name='дата полной предоплаты',
@@ -82,16 +90,6 @@ class Order(models.Model):
         blank=True, 
         null=True
     )
-
-    @property
-    def prepayment(self):
-        """
-        Свойство для получения предоплаты
-        """
-        # если заказ еще не сохранен в БД или нету активных покупок, то предоплата 0
-        if not self.pk or not self.purchases.filter(is_canceled=False).exists():
-            return 0
-        return self.purchases.filter(is_canceled=False).aggregate(Sum('prepayment')).get('prepayment__sum', 0)
 
     @property
     def left_to_pay(self):
@@ -122,21 +120,6 @@ class Order(models.Model):
         if left_to_refund > 0:
             return left_to_refund
         return 0
-
-    @property
-    def is_cart(self):
-        """
-        Является ли заказ корзиной
-        """
-        if self.client is not None:
-            return False
-        if self.cart_uuid is None:
-            return False
-        if self.paid > 0 or self.refunded > 0:
-            return False
-        return True
-
-    objects = OrdersManager()
 
     def save(self, *args, **kwargs):
         # переопределяем сохранение, чтоб дополнительно обновить автовычисляемые поля
@@ -196,15 +179,6 @@ class Order(models.Model):
                 self.date_full_paid = None
             return
 
-    def mark_as_canceled(self):
-        # устанавливаем дату отмены
-        self.date_canceled = timezone.now()
-        # убираем дату завершения, если она вдруг стоит
-        self.date_finished = None
-        # все не оплаченные покупки, которые еще не отменены, ставим как отмененные
-        self.purchases.filter(is_canceled=False, is_paid=False).update(is_canceled=True)
-        self.save()
-
     def mark_as_prepayment_paid(self):
         """
         Отметить предоплату как уплаченную
@@ -220,18 +194,31 @@ class Order(models.Model):
         self.save()
 
     def mark_as_finished(self):
-        self.date_canceled = None
+        # устанавливаем дату завершения
         self.date_finished = timezone.now()
-        self.purchases.exclude(
-            Q(is_paid=True) | Q(is_canceled=True)
-        ).update(is_canceled=True)
+        # убираем дату отмены, если она вдруг стоит
+        self.date_canceled = None
         self.save()
+        # все не оплаченные покупки, которые еще не отменены, ставим как отмененные
+        # не update т.к. нужен вызов pre save у puchase
+        for purchase in self.purchases.filter(is_canceled=False, is_paid=False):
+            purchase.mark_as_canceled()
 
+    def mark_as_canceled(self):
+        # устанавливаем дату отмены
+        self.date_canceled = timezone.now()
+        # убираем дату завершения, если она вдруг стоит
+        self.date_finished = None
+        self.save()
+        # все не оплаченные покупки, которые еще не отменены, ставим как отмененные
+        # не update т.к. нужен вызов pre save у puchase
+        for purchase in self.purchases.filter(is_canceled=False, is_paid=False):
+            purchase.mark_as_canceled()
 
 
 class Purchase(models.Model):
     order = models.ForeignKey(
-        Order,
+        BaseOrder,
         on_delete=models.CASCADE, 
         related_name='purchases',
         verbose_name='заказ'
@@ -315,6 +302,11 @@ class Purchase(models.Model):
         }
 
     def mark_as_canceled(self):
+        if self.order is Cart:
+            # если корзина, то проста сразу удаляем
+            self.delete()
+            return
+
         if not self.order.purchases.exclude(pk=self.id).filter(
                 is_canceled=False
         ).exists() and self.order.date_canceled is None:

@@ -189,10 +189,6 @@ class RoomCategory(models.Model):
 
 
 class Room(models.Model):
-    is_hidden = models.BooleanField(
-        verbose_name='скрыто',
-        default=False
-    )
     room_number = models.SmallIntegerField(
         verbose_name='номер комнаты'
     )

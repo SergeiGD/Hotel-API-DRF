@@ -1,8 +1,12 @@
 from django.db.models import Sum, Q
-from django.utils import timezone
 
 from ..orders.models import Order
-from ..users.models import CustomUser
+from ..users.models import CustomUser, CustomUserManager
+
+
+class ClientsManager(CustomUserManager):
+    def get_queryset(self):
+        return super(ClientsManager, self).get_queryset().filter(is_staff=False)
 
 
 class Client(CustomUser):
@@ -20,27 +24,11 @@ class Client(CustomUser):
     class Meta:
         proxy = True
 
+    objects = ClientsManager()
+
     def mark_as_deleted(self):
-        self.date_deleted = timezone.now()
         self.is_active = False
         self.save()
-
-    # def get_cart(self):
-    #     """
-    #     Получение коризны клиента
-    #     :return:
-    #     """
-    #     cart = Order.objects.filter(
-    #         client=self,
-    #         paid=0, refunded=0,
-    #         date_canceled=None,
-    #         date_finished=None
-    #     ).first()
-    #     if cart is not None:
-    #         return cart
-    #
-    #     # если корзины нету, то создаем
-    #     return Order.objects.create_cart()
 
     def get_orders(self):
         """
@@ -48,8 +36,6 @@ class Client(CustomUser):
         :return:
         """
         # если paid = 0 и refunded = 0, то это корзина
-        return self.orders.filter(
-            Q(paid__gt=0) | Q(refunded__gt=0)
-        )
+        return self.orders.all()
 
 

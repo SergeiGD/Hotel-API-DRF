@@ -17,11 +17,6 @@ class CustomUser(AbstractUser):
         null=True,
         blank=True
     )
-    date_deleted = models.DateTimeField(
-        verbose_name='дата удаления',
-        blank=True,
-        null=True
-    )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

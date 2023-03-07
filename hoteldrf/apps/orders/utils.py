@@ -36,11 +36,6 @@ class PurchaseSerializerMixin:
         return data
 
     def create_purchases(self, picked_rooms, order):
-        if not picked_rooms:
-            raise serializers.ValidationError({
-                "start": "На данный промежуток времени нету свободных комнат этой категории"
-            })
-
         purchases = []
         for room in picked_rooms:
             # создаем покупку

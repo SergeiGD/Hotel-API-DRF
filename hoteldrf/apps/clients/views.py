@@ -3,6 +3,7 @@ from django.urls import reverse
 from django.utils.encoding import smart_str, smart_bytes
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework.generics import get_object_or_404
+from rest_framework.permissions import DjangoModelPermissions, IsAdminUser
 from rest_framework.response import Response
 from rest_framework import generics, status, viewsets
 from django.contrib.sites.shortcuts import get_current_site
@@ -14,9 +15,10 @@ from .serializers import RegisterSerializer, ClientsSerializer, CartSerializer, 
 from .models import Client
 from django.conf import settings
 from .utils import SendVerifyEmailMixin
-from ..orders.models import Purchase, Order
+from ..orders.models import Purchase, Order, Cart
 from ..orders.mixins import PurchaseManageMixin, PurchaseCreateMixin
 from .utils import CartMixin, ClientOrdersMixin, ClientMixin
+from ..core.permissions import FullModelPermissionsPermissions
 
 
 class RegisterAPIView(SendVerifyEmailMixin, generics.GenericAPIView):
@@ -46,13 +48,14 @@ class VerifyEmailAPIView(SendVerifyEmailMixin, generics.GenericAPIView):
     Вью для подтверждения регистрации
     """
     def get(self, request):
+        # TODO мб параметр переделать в прям часть ссылки как при сбросе пароля
         token = request.GET.get('token')
         try:
             # декодим токен
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
             # получаем id клиента из мета-информации в токене
             client = Client.objects.get(id=payload['user_id'])
-            if not client.is_active and not client.is_staff:
+            if not client.is_active:
                 # подтверждаем активацию аккаунта
                 client.is_active = True
                 client.save()
@@ -68,6 +71,11 @@ class VerifyEmailAPIView(SendVerifyEmailMixin, generics.GenericAPIView):
             # если время жизни токена истекло, то декодим без проверки ошибки и отправляем письмо повторно
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256', options={"verify_signature": False})
             client = Client.objects.get(id=payload['user_id'])
+
+            if client.is_active:
+                return Response({
+                    'email': 'Невозможно подтврдить регистрацию, похоже, аккаунт и так подветжден'
+                }, status=status.HTTP_400_BAD_REQUEST)
 
             self.send_verify_email(client=client, domain=get_current_site(request).domain)
 
@@ -85,16 +93,14 @@ class ClientsViewSet(viewsets.ModelViewSet):
     """
     Вьюсет для работы с клиентами
     """
+    permission_classes = (IsAdminUser, FullModelPermissionsPermissions, )
     queryset = Client.objects.all()
     serializer_class = ClientsSerializer
+    # убираем метод delete, т.к. вообще не удаляем клиентов
+    http_method_names = ['get', 'post', 'put', 'patch',  'head', 'options']
 
     def get_queryset(self):
-        return Client.objects.filter(date_deleted=None, is_staff=False)
-
-    def perform_destroy(self, instance):
-        # переопределяем destroy, чтоб он просто почемал как удаленный, а не удалял реально
-        instance = self.get_object()
-        instance.mark_as_deleted()
+        return Client.objects.all()
 
 
 class CartRetrieveAPIView(CartMixin, APIView):
@@ -107,7 +113,7 @@ class CartRetrieveAPIView(CartMixin, APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        cart = Order.objects.create_cart()
+        cart = Cart.objects.create()
         serializer = CartSerializer(cart)
         return Response(serializer.data)
 
@@ -116,7 +122,7 @@ class CartPurchasesCreateAPIView(CartMixin, PurchaseCreateMixin, APIView):
     """
     Вью для добавления покупок в корзину
     """
-    def get_object(self):
+    def get_order(self):
         return self.get_cart()
 
 
@@ -133,8 +139,8 @@ class CartPayPrepaymentAPIView(CartMixin, APIView):
     Вью для внесения предоплаты за корзину
     """
     def patch(self, request):
-        cart = self.confirm_cart()
-        cart.mark_as_prepayment_paid()
+        order = self.confirm_cart()
+        order.mark_as_prepayment_paid()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -143,8 +149,8 @@ class CartPayAPIView(CartMixin, APIView):
     Вью для оплаты корзины
     """
     def patch(self, request):
-        cart = self.confirm_cart()
-        cart.mark_as_paid()
+        order = self.confirm_cart()
+        order.mark_as_paid()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

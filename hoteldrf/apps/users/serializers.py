@@ -4,6 +4,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.settings import api_settings
+from django.contrib.auth.models import Group, Permission
 
 from .models import CustomUser
 
@@ -41,12 +42,13 @@ class RefreshSerializer(serializers.Serializer):
 
     def validate(self, data):
 
+
         # проверяем, не находится ли токен в черном списке
         try:
             refresh = RefreshToken(data.get('refresh', ''))
         except TokenError:
             raise serializers.ValidationError({
-                    'refresh': 'Этот токен больше не действителен'
+                    'refresh': 'Этот токен не действителен'
                 })
 
         # если выставлена настройка обновления рефреш токена при запросе
@@ -65,6 +67,21 @@ class RefreshSerializer(serializers.Serializer):
         }
 
 
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(required=True, write_only=True)
+
+    def save(self, **kwargs):
+        try:
+            RefreshToken(self.validated_data['refresh']).blacklist()
+
+        except TokenError:
+            raise serializers.ValidationError({
+                'refresh': 'Этот токен не действителен'
+            })
+
+        return self.instance
+
+
 class RequestPasswordResetSerializer(serializers.Serializer):
     """
     Сериалайзер для запроса смены пароля
@@ -73,7 +90,7 @@ class RequestPasswordResetSerializer(serializers.Serializer):
 
     def validate(self, data):
         # если ли активный пользователь с указанной почтой
-        if not Client.objects.filter(
+        if not CustomUser.objects.filter(
             email=data['email'],
             is_active=True
         ).exists():
@@ -88,8 +105,8 @@ class SetNewPasswordSerializer(serializers.ModelSerializer):
     """
     Сериалайзер для установки установки новго пароля
     """
-    password1 = serializers.CharField(min_length=6, write_only=True)
-    password2 = serializers.CharField(min_length=6, write_only=True)
+    password1 = serializers.CharField(min_length=6, write_only=True, required=True)
+    password2 = serializers.CharField(min_length=6, write_only=True, required=True)
 
     class Meta:
         model = CustomUser
@@ -108,3 +125,43 @@ class SetNewPasswordSerializer(serializers.ModelSerializer):
         instance.set_password(validated_data['password1'])
         instance.save()
         return instance
+
+
+class GroupsSerializer(serializers.ModelSerializer):
+    """
+    Сериалайзер для групп
+    """
+    class Meta:
+        model = Group
+        fields = ['name', 'id']
+
+
+class PermissionsSerializer(serializers.ModelSerializer):
+    """
+    Сериалайзер для разрешений
+    """
+    class Meta:
+        model = Permission
+        fields = '__all__'
+
+
+class GroupPermissionsSerializer(serializers.ModelSerializer):
+    """
+    Сериалайзер для разрешений группы
+    """
+    permissions = serializers.PrimaryKeyRelatedField(queryset=Permission.objects.all())
+
+    class Meta:
+        model = Group
+        fields = ['permissions']
+
+    def update(self, instance, validated_data):
+        instance.permissions.add(validated_data['permissions'])
+        return instance
+
+    @property
+    def data(self):
+        """
+        Переопределенное св-во дата для сериализации permissions
+        """
+        return PermissionsSerializer(self.validated_data['permissions']).data

@@ -7,12 +7,17 @@ from rest_framework.utils.serializer_helpers import ReturnDict
 from .models import Order, Purchase
 from .utils import PurchaseSerializerMixin
 from ..rooms.models import RoomCategory
+from ..clients.models import Client
 from django.conf import settings
 from django.apps import apps
 
 
 class CreateOrderSerializer(serializers.ModelSerializer):
     date_created = serializers.DateTimeField(read_only=True)
+    client = serializers.PrimaryKeyRelatedField(
+        queryset=Client.objects.all(),
+        required=True
+    )
 
     class Meta:
         model = Order
@@ -116,10 +121,8 @@ class EditPurchaseSerializer(PurchaseSerializerMixin, serializers.ModelSerialize
         if self.partial:
             # если не передали начало/конец, то берем текущие данные модели
             if 'start' not in data:
-                # data_to_validate['start'] = timezone.make_naive(self.instance.start)
                 data_to_validate['start'] = self.instance.start
             if 'end' not in data:
-                # data_to_validate['end'] = timezone.make_naive(self.instance.end)
                 data_to_validate['end'] = self.instance.end
         return self.validate_dates(data_to_validate)
 
@@ -130,15 +133,26 @@ class EditPurchaseSerializer(PurchaseSerializerMixin, serializers.ModelSerialize
         purchase = instance
         room_cat = purchase.room.room_category
         order = purchase.order
+        # ищем свободные комнаты на выбранные даты
         picked_rooms = room_cat.pick_rooms_for_purchase(
             validated_data['start'],
             validated_data['end'],
             purchase.id
         )
+        if not picked_rooms:
+            # если нету свободных комнат на эти даты, то ошибка
+            raise serializers.ValidationError({
+                "start": "На данный промежуток времени нету свободных комнат этой категории"
+            })
         if picked_rooms:
-            purchase.delete()
-
-        return self.create_purchases(picked_rooms, order)
+            # первую покупку просто изменяем
+            purchase.start = picked_rooms[0]['start']
+            purchase.end = picked_rooms[0]['end']
+            purchase.save()
+        if len(picked_rooms) > 1:
+            # если покупок больше одной (на эти даты невозможна неприрывная бронь одной комнаты), то остальные создаем
+            return self.create_purchases(picked_rooms[1:], order)
+        return [purchase]
 
     @property
     def data(self):

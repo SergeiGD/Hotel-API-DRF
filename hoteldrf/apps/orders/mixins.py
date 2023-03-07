@@ -25,5 +25,5 @@ class PurchaseCreateMixin:
     def post(self, request, **kwargs):
         serializer = CreatePurchaseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save(order=self.get_object())
+        serializer.save(order=self.get_order())
         return Response(serializer.data, status=status.HTTP_201_CREATED)

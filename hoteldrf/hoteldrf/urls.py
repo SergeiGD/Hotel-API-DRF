@@ -25,9 +25,12 @@ urlpatterns = [
     path('api/orders/', include('apps.orders.urls.orders_urls')),
     path('api/sales/', include('apps.sales.urls.sales_urls')),
     path('api/clients/', include('apps.clients.urls.clients_url')),
+    path('api/groups/', include('apps.users.urls.groups_urls')),
+    path('api/permissions/', include('apps.users.urls.permissions_urls')),
     path('api/registration/', include('apps.clients.urls.registration_urls')),
     path('api/login/', include('apps.users.urls.login_urls')),
     path('api/cart/', include('apps.clients.urls.cart_urls')),
     path('api/profile/', include('apps.clients.urls.profile_urls')),
     path('api/reset_password/', include('apps.users.urls.reset_password_urls')),
+    path('api/logout/', include('apps.users.urls.logout_urls')),
 ]

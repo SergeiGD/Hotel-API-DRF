@@ -3,7 +3,7 @@ from django.utils.http import urlsafe_base64_encode
 from rest_framework import serializers
 
 from .models import Client
-from ..orders.models import Order
+from ..orders.models import Cart
 from ..orders.serializers import PurchasesSerializer, OrdersSerializer, CreatePurchaseSerializer, EditPurchaseSerializer
 from ..users.models import CustomUser
 
@@ -61,7 +61,6 @@ class ClientsSerializer(serializers.ModelSerializer):
     """
     Сериалайзер для оторабражения, создания, изменений клиентов
     """
-    email = serializers.EmailField(read_only=True)
     orders_count = serializers.ReadOnlyField()
     money_spent = serializers.ReadOnlyField()
 
@@ -71,16 +70,17 @@ class ClientsSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """
-        Переопдереленный метод create, для вызова create_user + установки is_staff и is_active False
+        Переопдереленный метод create, для установки is_staff и is_active False
         """
         data = {
-            'first_name': validated_data['first_name'],
-            'last_name': validated_data['last_name'],
-            'additional_info': validated_data['additional_info'],
+            'email': validated_data['email'],
+            'first_name': validated_data.get('first_name', ''),
+            'last_name': validated_data.get('last_name', ''),
+            'additional_info': validated_data.get('additional_info'),
             'is_staff': False,
             'is_active': False
         }
-        return Client.objects.create_user(**data)
+        return Client.objects.create(**data)
 
 
 class ClientPurchasesSerializer(PurchasesSerializer):
@@ -108,7 +108,7 @@ class CartSerializer(serializers.ModelSerializer):
     purchases = ClientPurchasesSerializer(many=True, read_only=True)
 
     class Meta:
-        model = Order
+        model = Cart
         fields = ['price', 'prepayment', 'purchases', 'cart_uuid']
 
 

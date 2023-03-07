@@ -2,6 +2,7 @@ from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
+from rest_framework.permissions import DjangoModelPermissionsOrAnonReadOnly, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -17,6 +18,7 @@ class SalesViewSet(viewsets.ModelViewSet):
     """
     queryset = Sale.objects.all()
     serializer_class = SalesSerializer
+    permission_classes = (DjangoModelPermissionsOrAnonReadOnly,)
 
     def get_queryset(self):
         return Sale.objects.filter(date_deleted=None)
@@ -62,10 +64,14 @@ class SaleAppliesToListAPIView(APIView):
     """
     Вью для получения списка и добавления элементов, на которые распостраняется скидка
     """
+    permission_classes = (DjangoModelPermissionsOrAnonReadOnly, )
+
+    def get_queryset(self):
+        sale = get_object_or_404(Sale, pk=self.kwargs['pk'])
+        return sale.applies_to.filter(date_deleted=None)
+
     def get(self, request, pk):
-        sale = get_object_or_404(Sale, pk=pk)
-        applies_to = sale.applies_to.filter(date_deleted=None)
-        serializer = RoomsCategoriesSerializer(applies_to, many=True)
+        serializer = RoomsCategoriesSerializer(self.get_queryset(), many=True)
         return Response(serializer.data)
 
     def put(self, request, pk):
@@ -73,15 +79,18 @@ class SaleAppliesToListAPIView(APIView):
         serializer = AppliesToSerializer(data=request.data, instance=sale)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        # т.к. applies_to вернет объекты RoomCategory, преобразуем их в json
-        serialized_data = RoomsCategoriesSerializer(serializer.validated_data['applies_to'])
-        return Response(serialized_data.data)
+        return Response(serializer.data)
 
 
-class SaleAppliesToManageAPIView(APIView):
+class SaleAppliesToDeleteAPIView(APIView):
     """
     Вью для отвязки элмента из списка элементов, на которые распостраняется скидка
     """
+    permission_classes = (DjangoModelPermissionsOrAnonReadOnly,)
+
+    def get_queryset(self):
+        sale = get_object_or_404(Sale, pk=self.kwargs['pk'])
+        return sale.applies_to.filter(date_deleted=None)
 
     def delete(self, request, cat_id, pk):
         sale = get_object_or_404(Sale, pk=pk)

@@ -2,26 +2,32 @@ import datetime
 
 from django.db.models import Max, F
 from rest_framework import generics, status, viewsets
-from rest_framework.decorators import api_view, action
+from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.generics import get_object_or_404
+from rest_framework.permissions import IsAdminUser, DjangoModelPermissions, IsAuthenticated, \
+                                        DjangoModelPermissionsOrAnonReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import RoomCategory
+from .models import RoomCategory, Room, Photo
 from ..tags.models import Tag
 from ..tags.serializers import TagsSerializer
+from ..core.permissions import FullModelPermissionsPermissions
 from .serializers import RoomsCategoriesSerializer, RoomsSerializer, PhotosSerializer, \
                         CreatePhotoSerializer, CatTagsSerializer
 
 
 class RoomsCategoriesViewSet(viewsets.ModelViewSet):
     """
-    Вьюсет для работы со скидками
+    Вьюсет для работы с категорями комнат
     """
     queryset = RoomCategory.objects.all()
     serializer_class = RoomsCategoriesSerializer
+    permission_classes = (DjangoModelPermissionsOrAnonReadOnly,)
 
     def get_queryset(self):
+        if not self.request.user.is_staff:
+            return RoomCategory.objects.filter(date_deleted=None, is_hidden=False)
         return RoomCategory.objects.filter(date_deleted=None)
 
     @action(methods=['GET'], detail=True, url_path='familiar')
@@ -61,12 +67,11 @@ class RoomsListAPIView(generics.ListCreateAPIView):
     Вью для получения списка и создания номеров категории
     """
     serializer_class = RoomsSerializer
+    permission_classes = (DjangoModelPermissionsOrAnonReadOnly, )
 
     def get_queryset(self):
-        # Отображаем те, которые не удалены, категорию берем из url
         room_cat = get_object_or_404(RoomCategory, pk=self.kwargs.get('pk'))
         return room_cat.rooms.filter(date_deleted=None)
-        # return Room.objects.filter(date_deleted=None, room_category_id=self.kwargs.get('cat_id'))
 
     def perform_create(self, serializer):
         # берем категорию из URL
@@ -79,9 +84,12 @@ class RoomManageAPIView(generics.RetrieveUpdateDestroyAPIView):
     Вью для просмотра, изменения, удаления номера
     """
     serializer_class = RoomsSerializer
+    permission_classes = (DjangoModelPermissionsOrAnonReadOnly,)
 
     def get_object(self):
-        return self.get_queryset().get(pk=self.kwargs.get('room_id'))
+        room = get_object_or_404(Room, room_category__id=self.kwargs.get('pk'), pk=self.kwargs['room_id'])
+        self.check_object_permissions(self.request, room)
+        return room
 
     def get_queryset(self):
         # Отображаем те, которые не удалены, категорию берем из url
@@ -97,40 +105,53 @@ class CategoryTagsListAPIView(APIView):
     """
     Вью для получения списка и добавления тегов категории номеров
     """
+    permission_classes = (IsAdminUser, FullModelPermissionsPermissions, )
+
+    def get_queryset(self):
+        room_cat = get_object_or_404(RoomCategory, pk=self.kwargs['pk'])
+        return room_cat.tags.all()
+
     def get(self, request, pk):
-        room_cat = get_object_or_404(RoomCategory, pk=pk)
-        serializer = TagsSerializer(room_cat.tags.all(), many=True)
+        serializer = TagsSerializer(self.get_queryset(), many=True)
         return Response(serializer.data)
 
     def put(self, request, pk):
         room_cat = get_object_or_404(RoomCategory, pk=pk)
-
         serializer = CatTagsSerializer(data=request.data, instance=room_cat)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        # т.к. applies_to вернет объекты RoomCategory, преобразуем их в json
-        serialized_data = TagsSerializer(serializer.validated_data['tags'])
-        return Response(serialized_data.data)
+        return Response(serializer.data)
 
 
-class CategoryTagManageAPIView(APIView):
+class CategoryTagDeleteAPIView(APIView):
     """
     Вью для удаления тега из категории
     """
+    permission_classes = (IsAdminUser, FullModelPermissionsPermissions,)
 
-    def delete(self, request, cat_id, pk):
-        room_cat = get_object_or_404(RoomCategory, pk=cat_id)
-        tag = get_object_or_404(Tag, pk=pk)
+    def get_queryset(self):
+        room_cat = get_object_or_404(RoomCategory, pk=self.kwargs['pk'])
+        return room_cat.tags.all()
+
+    def delete(self, request, tag_id, pk):
+        room_cat = get_object_or_404(RoomCategory, pk=pk)
+        tag = get_object_or_404(Tag, pk=tag_id)
         room_cat.tags.remove(tag)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-@api_view(['GET', 'POST'])
-def photos_list_api_view(request, pk):
-    """
-    Вью для получения списка фотографий категрии и добавления новых
-    """
-    if request.method == 'POST':
+class CategoryPhotosListAPIView(APIView):
+    permission_classes = (DjangoModelPermissionsOrAnonReadOnly, )
+
+    def get_queryset(self):
+        room_cat = get_object_or_404(RoomCategory, pk=self.kwargs['pk'])
+        return room_cat.photos.all()
+
+    def get(self, request, pk):
+        serializer = PhotosSerializer(self.get_queryset(), many=True)
+        return Response(serializer.data)
+
+    def post(self, request, pk):
         serializer = CreatePhotoSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         room_cat = get_object_or_404(RoomCategory, pk=pk)
@@ -142,40 +163,23 @@ def photos_list_api_view(request, pk):
         serializer.save(room_category=room_cat, order=order)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    if request.method == 'GET':
-        # категорию берем из url
-        room_cat = get_object_or_404(RoomCategory, pk=pk)
-        serializer = PhotosSerializer(room_cat.photos, many=True)
-        return Response(serializer.data)
-
 
 class PhotoManageAPIView(generics.RetrieveUpdateDestroyAPIView):
     """
     Вью для просмотра, изменения, удаления доп фотографий
     """
     serializer_class = PhotosSerializer
+    permission_classes = (DjangoModelPermissionsOrAnonReadOnly,)
 
     def get_object(self):
-        return self.get_queryset().get(pk=self.kwargs.get('photo_id'))
+        photo = get_object_or_404(Photo, room_category__id=self.kwargs.get('pk'), pk=self.kwargs['photo_id'])
+        self.check_object_permissions(self.request, photo)
+        return photo
 
     def get_queryset(self):
         # Отображаем те, которые не удалены, категорию берем из url
         room_cat = get_object_or_404(RoomCategory, pk=self.kwargs.get('pk'))
         return room_cat.photos.all()
-
-    def perform_update(self, serializer):
-        # переопределяем обновление, чтоб поменять порядковые номера местами
-        # берем старое и новое значение изменяемого объекта
-        temp_order = self.get_object().order
-        new_order = self.request.data['order']
-        room_cat = get_object_or_404(RoomCategory, pk=self.kwargs.get('pk'))
-        # берем объект, на место которого встанет изменяемый
-        photo_to_change = room_cat.photos.get(order=new_order)
-        photo_to_change.order = temp_order
-        # сохраняем объект, на место которого встанет изменяемый
-        photo_to_change.save()
-        # сохраняем изменяемый объект
-        serializer.save()
 
     def perform_destroy(self, instance):
         # переопределяем destroy, чтоб он сдиваг порядковый номер последующих фотографий

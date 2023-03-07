@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import Sale
+from ..rooms.serializers import RoomsCategoriesSerializer
 from ..rooms.models import RoomCategory
 
 
@@ -11,6 +12,12 @@ class SalesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sale
         exclude = ['date_created', 'date_deleted', 'applies_to']
+
+    def validate(self, data):
+        if 'discount' in data and (data['discount'] <= 0 or data['discount'] >= 100):
+            raise serializers.ValidationError({
+                'discount': 'размер скидки должен быть больше 0 и меньше 100'
+            })
 
     def __init__(self, *args, **kwargs):
         super(SalesSerializer, self).__init__(*args, **kwargs)
@@ -34,6 +41,14 @@ class AppliesToSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         instance.applies_to.add(validated_data['applies_to'])
         return instance
+
+    @property
+    def data(self):
+        """
+        Переопределенное св-во дата для сериализации applies_to
+        :return:
+        """
+        return RoomsCategoriesSerializer(self.validated_data['applies_to']).data
 
 
 

@@ -1,12 +1,12 @@
 from django.http import Http404
 from rest_framework.generics import get_object_or_404
-from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.urls import reverse
+from rest_framework.permissions import IsAuthenticated
 
 from ..users.utils import AuthUtil
 from ..clients.models import Client
-from ..orders.models import Order, Purchase
+from ..orders.models import Order, Purchase, Cart
 from .serializers import GuestSerializer
 
 
@@ -28,20 +28,11 @@ class SendVerifyEmailMixin:
         AuthUtil.send_email(email_data)
 
 
-class IsActiveUser(BasePermission):
-    """
-    Доступ только активным авторизированным пользователям (не гостям)
-    """
-
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_active)
-
-
 class ClientMixin:
     """
     Миксин для работы с авторизированным пользователям
     """
-    permission_classes = (IsActiveUser, )
+    permission_classes = (IsAuthenticated, )
 
     def get_client(self):
 
@@ -61,10 +52,10 @@ class CartMixin:
         Получение корзины
         """
         # берем идентификатор корзины из почты
-        if 'cart_uuid' in self.request.headers:
-            cart = get_object_or_404(Order, cart_uuid=self.request.headers['cart_uuid'])
-            if cart.is_cart:
-                return cart
+        if 'Cart-Uuid' in self.request.headers:
+
+            cart = get_object_or_404(Cart, cart_uuid=self.request.headers['Cart-Uuid'])
+            return cart
 
         raise Http404
 
@@ -75,24 +66,26 @@ class CartMixin:
         cart = self.get_cart()
         if self.request.user.is_authenticated:
             # если пользователь авторизирован, то в качестве клиента используется он
-            cart.client = self.request.user
+            order_client = self.request.user
         else:
             # иначе берем данные из указанной почты
             serializer = GuestSerializer(data=self.request.data)
             serializer.is_valid(raise_exception=True)
 
             # если клиент с такой почтой существует, то создаем заказ
-            client = Client.objects.filter(email=serializer.validated_data['email']).first()
-            if client:
-                cart.client = client
+            guest_client = Client.objects.filter(email=serializer.validated_data['email']).first()
+            if guest_client:
+                order_client = guest_client
             else:
                 # иначе создаем клиента-гостя (active false, без пароля) из переданного email
-                cart.client = serializer.save()
+                order_client = serializer.save()
 
-        # убираем идентификатор корзины
-        cart.cart_uuid = None
+        # создаем заказ и переносим покупки
+        order = Order.objects.create(client=order_client, price=cart.price)
+        cart.purchases.update(order=order)
+        cart.delete()
 
-        return cart
+        return order
 
 
 class ClientOrdersMixin(ClientMixin):
