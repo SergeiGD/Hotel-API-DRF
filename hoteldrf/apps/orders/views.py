@@ -82,6 +82,10 @@ class PurchasesListAPIView(PurchaseCreateMixin, APIView):
 class PurchaseManageAPIView(PurchaseManageMixin, APIView):
     permission_classes = (IsAdminUser, FullModelPermissionsPermissions, )
 
+    def get_queryset(self):
+        order = get_object_or_404(Order, pk=self.kwargs['pk'])
+        return order.purchases.all()
+
     def get_object(self):
         purchase = get_object_or_404(Purchase, pk=self.kwargs['purchase_id'], order_id=self.kwargs['pk'])
         self.check_object_permissions(self.request, purchase)

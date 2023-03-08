@@ -42,20 +42,46 @@ class RoomsCategoriesViewSet(viewsets.ModelViewSet):
     @action(methods=['GET'], detail=True, url_path='busy_dates')
     def busy_dates(self, request, **kwargs):
         """
-        Дополнительный action для занятых дат
+        Дополнительный action для получения занятых дат
         """
         # формуруем даты начала
-        dates_start = datetime.datetime.strptime(
-            request.query_params.get("dates_start"),
-            '%Y-%m-%d'
-        ).date()
-        dates_end = datetime.datetime.strptime(
-            request.query_params.get("dates_end"),
-            '%Y-%m-%d'
-        ).date()
+        try:
+            dates_start = datetime.datetime.strptime(
+                request.query_params.get("dates_start"),
+                '%Y-%m-%d'
+            ).date()
+            dates_end = datetime.datetime.strptime(
+                request.query_params.get("dates_end"),
+                '%Y-%m-%d'
+            ).date()
+        except ValueError:
+            return Response({
+                'error': 'Параметр даты начала или даты конца имеет неверный формат'
+            })
         # получаем список занятых дат
         busy_dates = self.get_object().get_busy_dates(dates_start, dates_end)
         return Response(busy_dates)
+
+    @action(methods=['GET'], detail=True, url_path='find_rooms')
+    def find_rooms(self, request, **kwargs):
+        """
+        Дополнительный action для подбора комнат и дат для брони
+        """
+        try:
+            dates_start = datetime.datetime.strptime(
+                request.query_params.get("dates_start"),
+                '%Y-%m-%d'
+            ).date()
+            dates_end = datetime.datetime.strptime(
+                request.query_params.get("dates_end"),
+                '%Y-%m-%d'
+            ).date()
+        except ValueError:
+            return Response({
+                'error': 'Параметр даты начала или даты конца имеет неверный формат'
+            })
+        rooms_dates = self.get_object().find_rooms(dates_start, dates_end)
+        return Response(rooms_dates)
 
     def perform_destroy(self, instance):
         # переопределяем destroy, чтоб он просто почемал как удаленный, а не удалял реально

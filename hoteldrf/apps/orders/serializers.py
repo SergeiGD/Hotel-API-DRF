@@ -8,6 +8,7 @@ from .models import Order, Purchase
 from .utils import PurchaseSerializerMixin
 from ..rooms.models import RoomCategory
 from ..clients.models import Client
+from ..rooms.serializers import RoomsSerializer
 from django.conf import settings
 from django.apps import apps
 
@@ -75,11 +76,12 @@ class PurchasesSerializer(serializers.ModelSerializer):
 
 class CreatePurchaseSerializer(PurchaseSerializerMixin, serializers.Serializer):
     room_cat = serializers.PrimaryKeyRelatedField(
-        write_only=True,
         queryset=RoomCategory.objects.filter(date_deleted=None),
+        write_only=True
     )
-    start = serializers.DateField(write_only=True)
-    end = serializers.DateField(write_only=True)
+    start = serializers.DateField()
+    end = serializers.DateField()
+    room = RoomsSerializer(read_only=True)
 
     def validate(self, data):
         return {
@@ -92,24 +94,26 @@ class CreatePurchaseSerializer(PurchaseSerializerMixin, serializers.Serializer):
         Подбор комнат и создание из них покупок для заказа
         """
         room_cat = validated_data['room_cat']
-        picked_rooms = room_cat.pick_rooms_for_purchase(validated_data['start'], validated_data['end'])
+        picked_room = room_cat.pick_room_for_purchase(validated_data['start'], validated_data['end'])
+        if picked_room is None:
+            raise serializers.ValidationError({
+                "start": "На данный промежуток времени нету свободных комнат этой категории"
+            })
 
-        return self.create_purchases(picked_rooms, validated_data['order'])
-
-    @property
-    def data(self):
-        """
-        Переопределенная data, т.к. сериалайзер у нас инциализируется Many=False, а после создания
-        возвращается коллекция объектом
-        """
-        serializer = PurchasesSerializer(self.instance, many=True)
-        return serializer.data
+        return self.create_purchase(
+            picked_room,
+            validated_data['start'],
+            validated_data['end'],
+            validated_data['order']
+        )
 
 
 class EditPurchaseSerializer(PurchaseSerializerMixin, serializers.ModelSerializer):
+    room = RoomsSerializer(read_only=True)
+
     class Meta:
         model = Purchase
-        fields = ['start', 'end']
+        fields = ['start', 'end', 'room']
 
     def validate(self, data):
         if self.instance.is_canceled:
@@ -132,33 +136,20 @@ class EditPurchaseSerializer(PurchaseSerializerMixin, serializers.ModelSerialize
         """
         purchase = instance
         room_cat = purchase.room.room_category
-        order = purchase.order
-        # ищем свободные комнаты на выбранные даты
-        picked_rooms = room_cat.pick_rooms_for_purchase(
+        # ищем свободную комнату на выбранные даты
+        picked_room = room_cat.pick_room_for_purchase(
             validated_data['start'],
             validated_data['end'],
-            purchase.id
+            purchase_id=purchase.id
         )
-        if not picked_rooms:
-            # если нету свободных комнат на эти даты, то ошибка
+        if picked_room is None:
             raise serializers.ValidationError({
                 "start": "На данный промежуток времени нету свободных комнат этой категории"
             })
-        if picked_rooms:
-            # первую покупку просто изменяем
-            purchase.start = picked_rooms[0]['start']
-            purchase.end = picked_rooms[0]['end']
-            purchase.save()
-        if len(picked_rooms) > 1:
-            # если покупок больше одной (на эти даты невозможна неприрывная бронь одной комнаты), то остальные создаем
-            return self.create_purchases(picked_rooms[1:], order)
-        return [purchase]
 
-    @property
-    def data(self):
-        """
-        Переопределенная data, т.к. сериалайзер у нас инциализируется Many=False, а после создания
-        возвращается коллекция объектом
-        """
-        serializer = PurchasesSerializer(self.instance, many=True)
-        return serializer.data
+        purchase.start = validated_data['start']
+        purchase.end = validated_data['end']
+        purchase.room_id = picked_room
+        purchase.save()
+
+        return purchase

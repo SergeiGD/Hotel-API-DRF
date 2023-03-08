@@ -131,12 +131,44 @@ class RoomCategory(models.Model):
         busy_dates.sort()
         return busy_dates
 
-    def pick_rooms_for_purchase(self, start, end, purchase_id=None):
+    def pick_room_for_purchase(self, start, end, purchase_id=None):
         """
+        Выбор комнаты для брони
+        :param start: начало брони
+        :param end: конец брони
+        :param purchase_id: id покупки, если изменяем ее, а не создаем новую
+        :return: комната, которая свободна в выбранные даты
+        """
+        # изначально все комнаты категории помечаем как свободные
+        free_rooms = set(self.get_rooms().values_list('id', flat=True))
+        # текущий проверяемый день
+        day_to_check = start
+        while free_rooms and day_to_check <= end:
+            # ищем комнаты, который заняты на текущий проверяемый день
+            busy_rooms = Purchase.objects.filter(
+                Q(start__lt=day_to_check) & Q(end__gt=day_to_check),
+                room__in=free_rooms,
+                is_canceled=False,
+            ).exclude(pk=purchase_id).values_list('room_id', flat=True)
+
+            # убираем из свободных комнат занятые
+            free_rooms -= set(busy_rooms)
+
+            day_to_check += datetime.timedelta(days=1)
+
+        # если free_rooms пустое множество, то на выбранный даты нету свободной комнаты
+        if not free_rooms:
+            return None
+
+        return list(free_rooms)[0]
+
+    def find_rooms(self, start, end):
+        """
+        Поиск комнат на выбранные даты (чтоб не было окон в бронях)
         :param start: начало брони
         :param end: конец брони
         :param purchase_id: id покупки (если обновляем уже созданную)
-        :return: список, состоящий из словарей с комнатами и подобранными свободными датами
+        :return: список, состоящий из словарей с ключами: комната, дата начала, дата конца
         """
         result = []
         # текущая граница проверенных дат
@@ -157,7 +189,7 @@ class RoomCategory(models.Model):
                     Q(start__lt=day_to_check) & Q(end__gt=day_to_check),
                     room__in=free_rooms,
                     is_canceled=False,
-                ).exclude(pk=purchase_id).values_list('room_id', flat=True)
+                ).values_list('room_id', flat=True)
 
                 # убираем из свободных комнат занятые
                 free_rooms -= set(busy_rooms)

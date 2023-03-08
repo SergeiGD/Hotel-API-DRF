@@ -35,24 +35,20 @@ class PurchaseSerializerMixin:
 
         return data
 
-    def create_purchases(self, picked_rooms, order):
-        purchases = []
-        for room in picked_rooms:
-            # создаем покупку
-            purchase = apps.get_model('orders.Purchase')(
-                room_id=room['room'],
-                start=room['start'],
-                end=room['end'],
-                order=order
-            )
-            # получаем расчитанные цены
-            payment_info = purchase.get_payment_info()
-            purchase.price = payment_info['price']
-            purchase.prepayment = payment_info['prepayment']
-            purchase.refund = payment_info['refund']
-            # сохраняем объект, будет вызван сигнал presave (см в модели)
-            purchase.save()
-            # добавляем к списку созданных
-            purchases.append(purchase)
-        return purchases
+    def create_purchase(self, picked_room, start, end, order):
+        purchase = apps.get_model('orders.Purchase')(
+            room_id=picked_room,
+            start=start,
+            end=end,
+            order=order
+        )
+        # получаем расчитанные цены
+        payment_info = purchase.get_payment_info()
+        purchase.price = payment_info['price']
+        purchase.prepayment = payment_info['prepayment']
+        purchase.refund = payment_info['refund']
+        # сохраняем объект, будет вызван сигнал presave (см в модели)
+        purchase.save()
+        return purchase
+
 
