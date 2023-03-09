@@ -25,7 +25,6 @@ class IdempotencyKeyMiddleware:
         return response
 
     def process_view(self, request, view_func, view_args, view_kwargs):
-        # print(dir(view_func))##
         idempotency_key_required = getattr(view_func, 'idempotency_key', False)
         # если post запрос и было указано, что ключ нужен
         if idempotency_key_required and request.method == 'POST':

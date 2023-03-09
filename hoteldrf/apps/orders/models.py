@@ -302,7 +302,7 @@ class Purchase(models.Model):
         }
 
     def mark_as_canceled(self):
-        if self.order is Cart:
+        if Cart.objects.filter(id=self.order.id).exists():
             # если корзина, то проста сразу удаляем
             self.delete()
             return

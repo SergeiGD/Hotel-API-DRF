@@ -1,3 +1,4 @@
+from django.db.models import Max
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
 
@@ -69,6 +70,8 @@ class RoomsSerializer(serializers.ModelSerializer):
     """
     Сериалайзер для оторабражения, создания, изменений номером
     """
+    room_number = serializers.IntegerField(required=False)
+
     class Meta:
         model = Room
         fields = ['id', 'room_number']
@@ -97,14 +100,28 @@ class RoomsSerializer(serializers.ModelSerializer):
 
         return super().validate(data)
 
+    def create(self, validated_data):
+        """
+        Переопределенный create для установки room_number
+        """
+        room_number = validated_data.get('room_number', None)
+        if room_number is None:
+            # если не установили вручную, то берем крайний + 1
+            room_number = Room.objects.filter(
+                date_deleted=None
+            ).aggregate(Max('room_number')).get('room_number__max', 0) + 1
+        return Room.objects.create(room_number=room_number, room_category=validated_data['room_category'])
+
 
 class CreatePhotoSerializer(serializers.ModelSerializer):
     """
     Сериалайзер для создания доп. фотографий категорий номеров
     """
+    order = serializers.ReadOnlyField()
+
     class Meta:
         model = Photo
-        fields = ['id', 'path']
+        fields = ['id', 'path', 'order']
 
 
 class PhotosSerializer(serializers.ModelSerializer):

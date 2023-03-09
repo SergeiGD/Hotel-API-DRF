@@ -19,6 +19,32 @@ class SalesSerializer(serializers.ModelSerializer):
                 'discount': 'размер скидки должен быть больше 0 и меньше 100'
             })
 
+        if 'start_date' in data:
+            start_date = data['start_date']
+            if self.partial and 'end_date' not in data:
+                end_date = self.instance.end
+            else:
+                end_date = data['end_date']
+
+            if start_date >= end_date:
+                raise serializers.ValidationError({
+                    'start': 'Начало должно быть меньше конца'
+                })
+
+        if 'end_date' in data:
+            end_date = data['end_date']
+            if self.partial and 'start_date' not in data:
+                start_date = self.instance.end
+            else:
+                start_date = data['start_date']
+
+            if start_date >= end_date:
+                raise serializers.ValidationError({
+                    'start': 'Начало должно быть меньше конца'
+                })
+
+        return data
+
     def __init__(self, *args, **kwargs):
         super(SalesSerializer, self).__init__(*args, **kwargs)
 
