@@ -10,8 +10,10 @@ from .serializers import CreateOrderSerializer, OrdersSerializer, \
                         PurchasesSerializer, EditOrderSerializer
 
 from .mixins import PurchaseManageMixin, PurchaseCreateMixin
+from ..core.utils import idempotency_key_marker
 
 
+@idempotency_key_marker
 class OrdersListAPIView(APIView):
     """
     Вью для получения списка и создания заказов
@@ -60,6 +62,7 @@ class OrderManageAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@idempotency_key_marker
 class PurchasesListAPIView(PurchaseCreateMixin, APIView):
     """
     Вью для получения списка и создания покупок заказа

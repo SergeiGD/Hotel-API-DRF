@@ -132,7 +132,7 @@ class PermissionsViewSet(viewsets.ReadOnlyModelViewSet):
     """
     queryset = Permission.objects.all()
     serializer_class = PermissionsSerializer
-    # permission_classes = (IsAdminUser, FullModelPermissionsPermissions)
+    permission_classes = (IsAdminUser, FullModelPermissionsPermissions)
 
 
 class RolePermissionsListAPIView(APIView):
@@ -146,7 +146,6 @@ class RolePermissionsListAPIView(APIView):
         return group.permissions.all()
 
     def get(self, request, pk):
-        group = get_object_or_404(Group, pk=pk)
         serializer = PermissionsSerializer(self.get_queryset(), many=True)
         return Response(serializer.data)
 

@@ -19,6 +19,7 @@ from ..orders.models import Purchase, Order, Cart
 from ..orders.mixins import PurchaseManageMixin, PurchaseCreateMixin
 from .utils import CartMixin, ClientOrdersMixin, ClientMixin
 from ..core.permissions import FullModelPermissionsPermissions
+from ..core.utils import idempotency_key_marker
 
 
 class RegisterAPIView(SendVerifyEmailMixin, generics.GenericAPIView):
@@ -103,7 +104,8 @@ class ClientsViewSet(viewsets.ModelViewSet):
         return Client.objects.all()
 
 
-class CartRetrieveAPIView(CartMixin, APIView):
+@idempotency_key_marker
+class CartAPIView(CartMixin, APIView):
     """
     Вью для получения и создания коризны
     """
@@ -118,6 +120,7 @@ class CartRetrieveAPIView(CartMixin, APIView):
         return Response(serializer.data)
 
 
+@idempotency_key_marker
 class CartPurchasesCreateAPIView(CartMixin, PurchaseCreateMixin, APIView):
     """
     Вью для добавления покупок в корзину
@@ -181,6 +184,7 @@ class ClientOrderManageAPIView(ClientOrdersMixin, APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@idempotency_key_marker
 class ClientPurchasesListAPIView(ClientOrdersMixin, APIView):
     """
     Вью для получения списка покупок заказа клиента
@@ -208,7 +212,7 @@ class ClientOrderPayAPIView(ClientOrdersMixin, APIView):
     """
     Вью для полной оплаты заказы клиента
     """
-    def patch(self, request):
+    def patch(self, request, pk):
         order = self.get_order(self.kwargs['pk'])
         order.mark_as_paid()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -218,6 +222,7 @@ class ClientProfileInfo(ClientMixin, generics.RetrieveUpdateAPIView):
     """
     Вью для просмотра и изменения профиля клиента
     """
+    # TODO смена почты
     serializer_class = ClientProfileSerializer
 
     def get_object(self):

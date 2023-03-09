@@ -10,6 +10,7 @@ class ClientsManager(CustomUserManager):
 
 
 class Client(CustomUser):
+    # TODO мб сделать отдельной прям отдельной моделью, а не прокси
     @property
     def orders_count(self):
         return Order.objects.filter(client=self, date_canceled=None).count()
@@ -30,12 +31,5 @@ class Client(CustomUser):
         self.is_active = False
         self.save()
 
-    def get_orders(self):
-        """
-        Получение заказов клиента
-        :return:
-        """
-        # если paid = 0 и refunded = 0, то это корзина
-        return self.orders.all()
 
 

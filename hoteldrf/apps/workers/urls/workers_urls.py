@@ -13,5 +13,5 @@ urlpatterns = [
     path('<int:pk>/timetables/', WorkerTimetablesListAPIView.as_view()),
     path('<int:pk>/timetables/<int:timetable_id>/', WorkerTimetableManageAPIView.as_view()),
     path('<int:pk>/groups/', WorkerGroupsListAPIView.as_view()),
-    path('<int:pk>/groups/<int:group_id>', WorkerGroupDeleteAPIView.as_view()),
+    path('<int:pk>/groups/<int:group_id>/', WorkerGroupDeleteAPIView.as_view()),
 ]

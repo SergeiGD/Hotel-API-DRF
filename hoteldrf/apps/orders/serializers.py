@@ -82,6 +82,7 @@ class CreatePurchaseSerializer(PurchaseSerializerMixin, serializers.Serializer):
     start = serializers.DateField()
     end = serializers.DateField()
     room = RoomsSerializer(read_only=True)
+    id = serializers.ReadOnlyField()
 
     def validate(self, data):
         return {
@@ -113,7 +114,7 @@ class EditPurchaseSerializer(PurchaseSerializerMixin, serializers.ModelSerialize
 
     class Meta:
         model = Purchase
-        fields = ['start', 'end', 'room']
+        fields = ['start', 'end', 'room', 'id']
 
     def validate(self, data):
         if self.instance.is_canceled:

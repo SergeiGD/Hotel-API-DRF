@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from .serializers import EditPurchaseSerializer, PurchasesSerializer, CreatePurchaseSerializer
+from ..core.utils import idempotency_key_marker
 
 
 class PurchaseManageMixin:

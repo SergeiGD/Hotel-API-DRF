@@ -54,7 +54,7 @@ class RoomsCategoriesViewSet(viewsets.ModelViewSet):
                 request.query_params.get("dates_end"),
                 '%Y-%m-%d'
             ).date()
-        except ValueError:
+        except Exception:
             return Response({
                 'error': 'Параметр даты начала или даты конца имеет неверный формат'
             })
@@ -76,7 +76,7 @@ class RoomsCategoriesViewSet(viewsets.ModelViewSet):
                 request.query_params.get("dates_end"),
                 '%Y-%m-%d'
             ).date()
-        except ValueError:
+        except Exception:
             return Response({
                 'error': 'Параметр даты начала или даты конца имеет неверный формат'
             })
@@ -131,7 +131,7 @@ class CategoryTagsListAPIView(APIView):
     """
     Вью для получения списка и добавления тегов категории номеров
     """
-    permission_classes = (IsAdminUser, FullModelPermissionsPermissions, )
+    permission_classes = (DjangoModelPermissionsOrAnonReadOnly, )
 
     def get_queryset(self):
         room_cat = get_object_or_404(RoomCategory, pk=self.kwargs['pk'])

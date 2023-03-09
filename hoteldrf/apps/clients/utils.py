@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from ..users.utils import AuthUtil
 from ..clients.models import Client
+from ..users.models import CustomUser
 from ..orders.models import Order, Purchase, Cart
 from .serializers import GuestSerializer
 
@@ -39,7 +40,7 @@ class ClientMixin:
         """
         Получение клиента
         """
-        return get_object_or_404(Client, pk=self.request.user.pk)
+        return get_object_or_404(CustomUser, pk=self.request.user.pk)
 
 
 class CartMixin:
@@ -73,7 +74,7 @@ class CartMixin:
             serializer.is_valid(raise_exception=True)
 
             # если клиент с такой почтой существует, то создаем заказ
-            guest_client = Client.objects.filter(email=serializer.validated_data['email']).first()
+            guest_client = CustomUser.objects.filter(email=serializer.validated_data['email']).first()
             if guest_client:
                 order_client = guest_client
             else:
@@ -95,7 +96,7 @@ class ClientOrdersMixin(ClientMixin):
 
     def get_orders(self):
         client = self.get_client()
-        return client.get_orders()
+        return client.orders.all()
 
     def get_order(self, pk):
         return get_object_or_404(
@@ -105,9 +106,13 @@ class ClientOrdersMixin(ClientMixin):
         )
 
     def get_purchase(self, order_id, purchase_id):
-        return get_object_or_404(
-            Purchase,
-            id=purchase_id,
-            order__client_id=self.get_client().pk,
-            order_id=order_id
+        order = get_object_or_404(
+            Order,
+            client_id=self.get_client().pk,
+            id=order_id
         )
+        purchase = order.purchases.filter(id=purchase_id).first()
+        if purchase is None:
+            raise Http404
+        return purchase
+

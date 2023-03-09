@@ -64,7 +64,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'apps.core.middleware.idempotency_key_middleware'
+    # 'apps.core.middleware.idempotency_key_middleware'
+    'apps.core.middleware.IdempotencyKeyMiddleware'
 ]
 
 ROOT_URLCONF = 'hoteldrf.urls'

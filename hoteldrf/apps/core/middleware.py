@@ -9,13 +9,26 @@ from .models import IdempotencyKey
 from .utils import check_uuid, gen_middleware_response
 
 
-def idempotency_key_middleware(get_response):
-    """
-    Middleware для работы с ключем индепотености для POST запросов
-    """
+class IdempotencyKeyMiddleware:
 
-    def middleware(request):
-        if request.method == 'POST':
+    def __init__(self, get_response):
+        self.idempotency_key = None
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        # при успешном POST запросе, если был использован ключ индепотентнти,
+        # то добавляем его в таблицу использованных ключей
+        if request.method == 'POST' and status.is_success(response.status_code) and self.idempotency_key is not None:
+            IdempotencyKey.objects.create(id=self.idempotency_key)
+
+        return response
+
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        # print(dir(view_func))##
+        idempotency_key_required = getattr(view_func, 'idempotency_key', False)
+        # если post запрос и было указано, что ключ нужен
+        if idempotency_key_required and request.method == 'POST':
             # если нету ключа, то возвращем ошибку
             if 'Idempotency-Key' not in request.headers:
                 return gen_middleware_response(
@@ -39,13 +52,5 @@ def idempotency_key_middleware(get_response):
                     status.HTTP_409_CONFLICT
                 )
 
-        response = get_response(request)
-
-        # при успешном POST запросе добавляем ключ в таблицу использованных ключей
-        if request.method == 'POST' and status.is_success(response.status_code):
-            idempotency_key = request.headers['Idempotency-Key']
-            IdempotencyKey.objects.create(id=idempotency_key)
-
-        return response
-
-    return middleware
+            # фиксируем значения ключа, чтоб при успешном запросе пометить его как использованный
+            self.idempotency_key = idempotency_key
