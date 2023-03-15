@@ -17,6 +17,7 @@ from .serializers import RoomsCategoriesSerializer, RoomsSerializer, PhotosSeria
                         CreatePhotoSerializer, CatTagsSerializer
 
 
+# TODO: django_filter
 class RoomsCategoriesViewSet(viewsets.ModelViewSet):
     """
     Вьюсет для работы с категорями комнат

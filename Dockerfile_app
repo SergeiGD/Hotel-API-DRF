@@ -14,5 +14,6 @@ ENTRYPOINT  ./wait-for-it.sh db:5432 -- \
             env | grep DB_NAME >> /etc/environment && \
             env | grep DB_USER >> /etc/environment && \
             env | grep DB_PASSWORD >> /etc/environment && \
+            crond && \
             python3 manage.py crontab add && \
             python3 manage.py runserver 0.0.0.0:8000

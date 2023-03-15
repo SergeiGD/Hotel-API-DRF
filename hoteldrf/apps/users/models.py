@@ -6,6 +6,7 @@ from .managers import CustomUserManager
 
 
 class CustomUser(AbstractUser):
+    # TODO: номер телефона
 
     username = None
     email = models.EmailField(
