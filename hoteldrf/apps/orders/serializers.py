@@ -15,10 +15,6 @@ from django.apps import apps
 
 class CreateOrderSerializer(serializers.ModelSerializer):
     date_created = serializers.DateTimeField(read_only=True)
-    client = serializers.PrimaryKeyRelatedField(
-        queryset=Client.objects.all(),
-        required=True
-    )
 
     class Meta:
         model = Order
@@ -74,15 +70,19 @@ class PurchasesSerializer(serializers.ModelSerializer):
         exclude = ['order', ]
 
 
-class CreatePurchaseSerializer(PurchaseSerializerMixin, serializers.Serializer):
+class CreatePurchaseSerializer(PurchaseSerializerMixin, serializers.ModelSerializer):
     room_cat = serializers.PrimaryKeyRelatedField(
         queryset=RoomCategory.objects.filter(date_deleted=None),
         write_only=True
-    )
+    )  # кидаем только нужную категорию, саму комнату подбираем автоматически
     start = serializers.DateField()
     end = serializers.DateField()
     room = RoomsSerializer(read_only=True)
     id = serializers.ReadOnlyField()
+
+    class Meta:
+        model = Purchase
+        fields = ['start', 'end', 'room', 'id', 'room_cat']
 
     def validate(self, data):
         return {
@@ -94,6 +94,11 @@ class CreatePurchaseSerializer(PurchaseSerializerMixin, serializers.Serializer):
         """
         Подбор комнат и создание из них покупок для заказа
         """
+        if validated_data['order'].date_canceled is not None or validated_data['order'].date_finished is not None:
+            raise serializers.ValidationError({
+                'order': 'Нельзя добавить покупку и завершенному заказу'
+            })
+
         room_cat = validated_data['room_cat']
         picked_room = room_cat.pick_room_for_purchase(validated_data['start'], validated_data['end'])
         if picked_room is None:
@@ -111,6 +116,8 @@ class CreatePurchaseSerializer(PurchaseSerializerMixin, serializers.Serializer):
 
 class EditPurchaseSerializer(PurchaseSerializerMixin, serializers.ModelSerializer):
     room = RoomsSerializer(read_only=True)
+    start = serializers.DateField(required=False)
+    end = serializers.DateField(required=False)
 
     class Meta:
         model = Purchase
@@ -151,6 +158,7 @@ class EditPurchaseSerializer(PurchaseSerializerMixin, serializers.ModelSerialize
         purchase.start = validated_data['start']
         purchase.end = validated_data['end']
         purchase.room_id = picked_room
-        purchase.save()
+        #  устанавливаем цены и сохраняем
+        purchase.update_payment()
 
         return purchase

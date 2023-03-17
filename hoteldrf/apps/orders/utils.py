@@ -25,6 +25,7 @@ class PurchaseUtil:
 
 class PurchaseSerializerMixin:
     def validate_dates(self, data):
+
         start = data['start']
         end = data['end']
 
@@ -42,13 +43,8 @@ class PurchaseSerializerMixin:
             end=end,
             order=order
         )
-        # получаем расчитанные цены
-        payment_info = purchase.get_payment_info()
-        purchase.price = payment_info['price']
-        purchase.prepayment = payment_info['prepayment']
-        purchase.refund = payment_info['refund']
-        # сохраняем объект, будет вызван сигнал presave (см в модели)
-        purchase.save()
+        #  устанавливаем цены и сохраняем
+        purchase.update_payment()
         return purchase
 
 

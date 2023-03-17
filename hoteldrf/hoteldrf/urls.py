@@ -33,4 +33,5 @@ urlpatterns = [
     path('api/profile/', include('apps.clients.urls.profile_urls')),
     path('api/reset_password/', include('apps.users.urls.reset_password_urls')),
     path('api/logout/', include('apps.users.urls.logout_urls')),
+    path('api/graphql/', include('apps.core.urls.graphql_urls')),
 ]

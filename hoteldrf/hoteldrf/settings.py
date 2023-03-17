@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'graphene_django',
 ]
 
 MIDDLEWARE = [
@@ -167,12 +168,23 @@ SIMPLE_JWT = {
 }
 
 
+# GraphQL
+GRAPHENE = {
+    'SCHEMA': 'apps.core.schema.schema',
+    'ATOMIC_MUTATIONS': True,
+}
+
+
 # REST FRAMEWORK CONFIG
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+]
 
 
 # EMAIL SETTINGS

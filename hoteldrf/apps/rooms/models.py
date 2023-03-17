@@ -115,6 +115,7 @@ class RoomCategory(models.Model):
         return False
 
     def get_busy_dates(self, dates_start, dates_end):
+        # TODO: типизацию
         """
         Метод для получения занятых дат в диапозоне
         """
@@ -143,14 +144,14 @@ class RoomCategory(models.Model):
         free_rooms = set(self.get_rooms().values_list('id', flat=True))
         # текущий проверяемый день
         day_to_check = start
-        while free_rooms and day_to_check <= end:
+        while free_rooms and day_to_check < end:
             # ищем комнаты, который заняты на текущий проверяемый день
             busy_rooms = Purchase.objects.filter(
-                Q(start__lt=day_to_check) & Q(end__gt=day_to_check),
+                # Q(start__lt=day_to_check) & Q(end__gt=day_to_check),
+                Q(start__lte=day_to_check) & Q(end__gt=day_to_check),
                 room__in=free_rooms,
                 is_canceled=False,
             ).exclude(pk=purchase_id).values_list('room_id', flat=True)
-
             # убираем из свободных комнат занятые
             free_rooms -= set(busy_rooms)
 
@@ -160,6 +161,7 @@ class RoomCategory(models.Model):
         if not free_rooms:
             return None
 
+        # берем первую с списку свободных
         return list(free_rooms)[0]
 
     def find_rooms(self, start, end):

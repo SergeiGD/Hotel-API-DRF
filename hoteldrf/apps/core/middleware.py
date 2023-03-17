@@ -4,6 +4,7 @@ from django.http import HttpResponseForbidden
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework import generics, status
+from datetime import datetime
 
 from .models import IdempotencyKey
 from .utils import check_uuid, gen_middleware_response
@@ -53,3 +54,5 @@ class IdempotencyKeyMiddleware:
 
             # фиксируем значения ключа, чтоб при успешном запросе пометить его как использованный
             self.idempotency_key = idempotency_key
+        else:
+            self.idempotency_key = None

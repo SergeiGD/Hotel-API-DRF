@@ -33,6 +33,9 @@ class BaseOrder(models.Model):
             return 0
         return self.purchases.filter(is_canceled=False).aggregate(Sum('prepayment')).get('prepayment__sum', 0)
 
+    class Meta:
+        ordering = ['-date_created']
+
 
 class Cart(BaseOrder):
     cart_uuid = models.UUIDField(
@@ -300,6 +303,13 @@ class Purchase(models.Model):
             'prepayment': prepayment,
             'refund': refund
         }
+
+    def update_payment(self):
+        payment_info = self.get_payment_info()
+        self.price = payment_info['price']
+        self.prepayment = payment_info['prepayment']
+        self.refund = payment_info['refund']
+        self.save()
 
     def mark_as_canceled(self):
         if Cart.objects.filter(id=self.order.id).exists():
